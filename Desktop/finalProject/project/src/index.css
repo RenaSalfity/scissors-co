@@ -1,0 +1,36 @@
+body,
+html {
+  height: 100%;
+  margin: 100px;
+  padding: 0;
+  font-family: "Poppins", sans-serif;
+  /* overflow-x: auto; */
+  /* overflow-y: auto; */
+}
+
+/* Center the content and add spacing below the header */
+.main-content {
+  margin-top: 8rem; /* Adjust spacing as needed */
+  max-width: 1200px;
+  width: 100%;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+/* Ensure the header is always visible */
+/* header {
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2rem 0;
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+} */

@@ -1,0 +1,89 @@
+body {
+  height: 100vh;
+  margin: 0; /* ✅ No extra margins */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url('../img/loginPage.jpg') no-repeat center center fixed;
+  background-size: cover;
+  font-family: 'Poppins', sans-serif;
+}
+
+.signup-container {
+  position: relative;
+  z-index: 2;
+  max-width: 400px;
+  padding: 3rem;
+  background-color: rgba(255, 255, 255, 0.1); /* Slight transparency for stylish effect */
+  backdrop-filter: blur(10px); /* Glassmorphism effect */
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.signup-title {
+  font-size: 2.8rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.form-group label {
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: #555;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.4rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  border-color: #ff8000;
+  box-shadow: 0 0 10px rgba(255, 128, 0, 0.3);
+}
+
+.signup-btn {
+  width: 100%;
+  padding: 1rem;
+  background-color: #ff8000;
+  color: #fff;
+  font-size: 1.6rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.signup-btn:hover {
+  background-color: #e66c00;
+  box-shadow: 0 5px 15px rgba(255, 128, 0, 0.4);
+}
+
+.signup-footer {
+  margin-top: 1.5rem;
+  font-size: 1.4rem;
+}
+
+.signup-footer a {
+  color: #ff8000;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.signup-footer a:hover {
+  text-decoration: underline;
+}
