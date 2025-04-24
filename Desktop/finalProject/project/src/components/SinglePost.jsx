@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../assets/styles/SinglePost.css";
 
 function SinglePost({ user }) {
   const { id } = useParams(); // ✅ Get category ID from URL
+  const navigate = useNavigate();
+
   const [category, setCategory] = useState(null);
   const [services, setServices] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -48,7 +50,6 @@ function SinglePost({ user }) {
 
   const handleEditService = (e) => {
     e.preventDefault();
-
     axios
       .put(
         `http://localhost:5001/services/${editService.id}`,
@@ -58,7 +59,7 @@ function SinglePost({ user }) {
           time: editService.time,
         },
         {
-          headers: { "Content-Type": "application/json" }, // ✅ Ensure JSON format
+          headers: { "Content-Type": "application/json" },
         }
       )
       .then(() => {
@@ -72,20 +73,21 @@ function SinglePost({ user }) {
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this service?"
     );
-
-    if (!confirmDelete) {
-      return; // If user cancels, stop here
-    }
+    if (!confirmDelete) return;
 
     axios
       .delete(`http://localhost:5001/services/${serviceId}`)
       .then(() => {
         console.log(`Service ${serviceId} deleted successfully`);
-        fetchServices(); // Refresh the list after deletion
+        fetchServices();
       })
       .catch((err) =>
         console.error("Error deleting service:", err.response?.data || err)
       );
+  };
+
+  const handleBookClick = (service) => {
+    navigate("/booking", { state: { service } });
   };
 
   if (!category) return <h1>Service not found</h1>;
@@ -111,8 +113,12 @@ function SinglePost({ user }) {
                 <p>Price: ₪{service.price}</p>
                 <p>Time: {service.time} min</p>
               </div>
-              <button className="appointment-btn">Make an appointment</button>
-
+              <button
+                className="appointment-btn"
+                onClick={() => handleBookClick(service)}
+              >
+                Make an appointment
+              </button>
               {user?.role === "Admin" && (
                 <>
                   <button

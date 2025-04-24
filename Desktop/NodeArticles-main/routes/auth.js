@@ -20,19 +20,24 @@ router.post("/signup", async (req, res) => {
 
   // ✅ Validate user input
   if (!/^[A-Za-z]{2,}$/.test(name)) {
-    return res
-      .status(400)
-      .json({
-        error: "Name must contain at least 2 letters and only letters.",
-      });
+    return res.status(400).json({
+      error: "Name must contain at least 2 letters and only letters.",
+    });
   }
 
   if (!/^05\d{8}$/.test(phone)) {
-    return res
-      .status(400)
-      .json({
-        error: "Phone number must be exactly 10 digits and start with '05'.",
-      });
+    return res.status(400).json({
+      error: "Phone number must be exactly 10 digits and start with '05'.",
+    });
+    /*
+      
+    if (!/^\d{10}$/.test(phone) || !phone.startsWith("05")) {
+  return res.status(400).json({
+    error: "Phone number must be exactly 10 digits, start with '05', and contain only numbers.",
+  });
+}
+
+      */
   }
 
   if (!/\S+@\S+\.\S+/.test(email)) {
@@ -40,12 +45,10 @@ router.post("/signup", async (req, res) => {
   }
 
   if (!isValidPassword(password)) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Password must be 3-8 characters long and contain at least one letter and one number.",
-      });
+    return res.status(400).json({
+      error:
+        "Password must be 3-8 characters long and contain at least one letter and one number.",
+    });
   }
 
   try {
@@ -75,11 +78,9 @@ router.post("/signup", async (req, res) => {
         (err, result) => {
           if (err) {
             console.error("Database error:", err);
-            return res
-              .status(500)
-              .json({
-                error: "Internal server error. Please try again later.",
-              });
+            return res.status(500).json({
+              error: "Internal server error. Please try again later.",
+            });
           }
 
           res
@@ -126,22 +127,18 @@ router.post("/login", async (req, res) => {
       }
 
       // ✅ Login successful
-      res
-        .status(200)
-        .json({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-        });
+      res.status(200).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      });
     });
   } catch (error) {
     console.error("Server error:", error);
     res.status(500).json({ error: "Server error. Try again later." });
   }
 });
-
-
 
 module.exports = router;
