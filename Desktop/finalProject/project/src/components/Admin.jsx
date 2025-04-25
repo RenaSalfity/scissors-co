@@ -10,7 +10,7 @@ function Admin() {
   const navigate = useNavigate(); // ✅ Allows redirection
 
   useEffect(() => {
-    fetchCategories();
+    fetchCategories(); 
   }, []);
 
   const fetchCategories = () => {
