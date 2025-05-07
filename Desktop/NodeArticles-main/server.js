@@ -516,3 +516,19 @@ app.get("/api/appointments", (req, res) => {
     res.json(results);
   });
 });
+
+// ✅ Check if employee has any appointments before demotion
+app.get("/api/employees/:id/appointments", (req, res) => {
+  const { id } = req.params;
+
+  const sql = "SELECT COUNT(*) AS count FROM appointments WHERE employee_id = ?";
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error("Error checking employee appointments:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    const hasAppointments = results[0].count > 0;
+    res.json({ hasAppointments });
+  });
+});
