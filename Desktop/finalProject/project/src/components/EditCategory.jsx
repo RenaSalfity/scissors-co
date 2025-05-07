@@ -43,6 +43,24 @@ function EditCategory() {
       {/* <Header /> */}
       <div className="main">
         <h1>Edit Category</h1>
+
+        {/* ✅ Back to Main Button */}
+        <button
+          onClick={() => navigate("/admin")}
+          className="back-button"
+          style={{
+            marginBottom: "15px",
+            padding: "8px 16px",
+            backgroundColor: "#f0f0f0",
+            border: "none",
+            borderRadius: "6px",
+            fontSize: "14px",
+            cursor: "pointer",
+          }}
+        >
+          ← Back to Main Page
+        </button>
+
         <form onSubmit={handleUpdateCategory}>
           <input
             type="text"
@@ -58,6 +76,7 @@ function EditCategory() {
       {/* <Footer /> */}
     </div>
   );
+
 }
 
 export default EditCategory;

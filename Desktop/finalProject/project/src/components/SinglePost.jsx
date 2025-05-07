@@ -95,6 +95,12 @@ function SinglePost({ user }) {
   return (
     <div className="single-post">
       <h1 className="post-title">{category.name}</h1>
+
+      {/* ✅ Back Button */}
+      <button onClick={() => navigate("/")} className="back-button">
+        ← Back to Main Page
+      </button>
+
       {category.image && (
         <img
           src={`http://localhost:5001/uploads/${category.image}`}
@@ -104,6 +110,7 @@ function SinglePost({ user }) {
       )}
 
       <h2 className="service-header">Available Services</h2>
+
       {services.length > 0 ? (
         <ul className="service-list">
           {services.map((service) => (

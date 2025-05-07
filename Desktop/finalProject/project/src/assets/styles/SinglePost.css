@@ -12,6 +12,20 @@
   list-style-type: none;
   padding: 0;
 }
+.back-button {
+  margin-bottom: 20px;
+  padding: 8px 16px;
+  font-size: 14px;
+  border: none;
+  border-radius: 6px;
+  background-color: #ddd;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.back-button:hover {
+  background-color: #ccc;
+}
 
 .post-title {
   font-size: 2.5rem;
