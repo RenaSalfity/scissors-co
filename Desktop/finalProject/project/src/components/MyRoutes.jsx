@@ -14,7 +14,7 @@ import Appointments from "./Appointments";
 import Employees from "./Employees";
 import BookingPage from "./BookingPage";
 import Customers from "./Customers";
-import Settings from "./Settings"; // ✅ RESTORED
+import Settings from "./Settings"; 
 
 function MyRoutes() {
   const [user, setUser] = useState(() => {
