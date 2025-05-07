@@ -521,7 +521,8 @@ app.get("/api/appointments", (req, res) => {
 app.get("/api/employees/:id/appointments", (req, res) => {
   const { id } = req.params;
 
-  const sql = "SELECT COUNT(*) AS count FROM appointments WHERE employee_id = ?";
+  const sql =
+    "SELECT COUNT(*) AS count FROM appointments WHERE employee_id = ?";
   db.query(sql, [id], (err, results) => {
     if (err) {
       console.error("Error checking employee appointments:", err);
@@ -530,5 +531,70 @@ app.get("/api/employees/:id/appointments", (req, res) => {
 
     const hasAppointments = results[0].count > 0;
     res.json({ hasAppointments });
+  });
+});
+
+app.put("/api/users/:id/profile", (req, res) => {
+  const { id } = req.params;
+  const { name, oldPassword, newPassword } = req.body;
+
+  const getUserSql = "SELECT password FROM users WHERE id = ?";
+  db.query(getUserSql, [id], (err, results) => {
+    if (err || results.length === 0)
+      return res.status(500).json({ error: "User not found" });
+
+    const user = results[0];
+
+    const updateName = () => {
+      db.query("UPDATE users SET name = ? WHERE id = ?", [name, id], (err) => {
+        if (err)
+          return res.status(500).json({ error: "Failed to update name" });
+        res.json({ message: "Profile updated" });
+      });
+    };
+
+    if (!newPassword) {
+      updateName(); // just update name
+    } else {
+      bcrypt.compare(oldPassword, user.password, (err, match) => {
+        if (err || !match)
+          return res.status(401).json({ error: "Incorrect old password" });
+
+        bcrypt.hash(newPassword, 10, (err, hash) => {
+          if (err) return res.status(500).json({ error: "Hashing failed" });
+
+          db.query(
+            "UPDATE users SET name = ?, password = ? WHERE id = ?",
+            [name, hash, id],
+            (err) => {
+              if (err)
+                return res
+                  .status(500)
+                  .json({ error: "Failed to update profile" });
+              res.json({ message: "Profile and password updated" });
+            }
+          );
+        });
+      });
+    }
+  });
+});
+
+// ✅ Get user details by email (used in Settings.jsx)
+app.get("/users/:email", (req, res) => {
+  const email = decodeURIComponent(req.params.email);
+
+  const sql = "SELECT id, name, phone, email FROM users WHERE email = ?";
+  db.query(sql, [email], (err, result) => {
+    if (err) {
+      console.error("Error fetching user by email:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(result[0]);
   });
 });

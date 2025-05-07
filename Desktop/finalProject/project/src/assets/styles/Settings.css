@@ -1,12 +1,12 @@
 .settings-container {
-  background-image: url("../img/loginPage.jpg"); /* optional */
-  background-size: cover;
-  background-position: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 60px); /* Already good */
   display: flex;
   justify-content: center;
+  align-items: start;
   padding-top: 100px;
+  padding-bottom: 120px; /* ✅ Add enough padding to avoid footer overlap */
 }
+
 
 .settings-card {
   background: white;
