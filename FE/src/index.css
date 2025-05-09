@@ -8,7 +8,12 @@ html {
   font-family: "Poppins", sans-serif;
   /* overflow-x: auto; */
   /* overflow-y: auto; */
+  background: url('../src/assets/img/loginPage.jpg') no-repeat center center fixed;
 }
+/* body.with-background {
+  background: url('../src/assets/img/loginPage.jpg') no-repeat center center fixed;
+  background-size: cover;
+} */
 
 /* Center the content and add spacing below the header */
 .main-content {
@@ -20,6 +25,7 @@ html {
   border-radius: 15px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   text-align: center;
+  
 }
 
 /* Ensure the header is always visible */
