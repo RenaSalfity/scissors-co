@@ -1,0 +1,71 @@
+/* Header styles */
+/* header {
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  opacity: 0.85; 
+  background-color: #ffffff;
+  padding: 2rem 0;
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+} */
+
+/* Header content alignment */
+.header__wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+}
+
+/* Logo styles */
+.logo a {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  color: #333;
+  font-size: 2.4rem;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* Navigation menu */
+.menu {
+  display: flex;
+  gap: 2rem;
+}
+
+.menu li {
+  list-style: none;
+}
+
+.menu li a {
+  color: #333;
+  text-decoration: none;
+  font-size: 1.6rem;
+  transition: color 0.3s ease-in-out;
+}
+
+.menu li a:hover {
+  color: #ff8000; /* Highlight effect */
+}
+.logout-btn {
+  background: #ff8000;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+}
+.logout-btn:hover {
+  background: #7c4004;
+  
+}
+
