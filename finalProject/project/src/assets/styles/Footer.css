@@ -1,0 +1,35 @@
+/* Footer styles */
+
+/* footer {
+  width: 100%;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  opacity: 0.85; 
+  background-color: #ffffff;
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: #333;
+  z-index: 1000;
+  box-shadow: 0px -4px 10px rgba(0, 0, 0, 0.1);
+  margin-top: auto;
+} */
+
+/* Footer content alignment */
+.footer__wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2rem;
+
+}
+
+/* Footer text */
+.footer__wrap p {
+  margin: 0;
+  color: #333;
+}

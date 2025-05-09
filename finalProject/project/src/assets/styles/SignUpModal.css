@@ -1,0 +1,74 @@
+
+.signup-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signup-modal {
+  background: #fff;
+  padding: 2rem;
+  width: 400px;
+  max-width: 90%;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.signup-modal h2 {
+  margin-bottom: 1.5rem;
+  color: chocolate;
+  text-align: center;
+}
+
+.signup-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.signup-modal input {
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.signup-modal .error {
+  color: red;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.signup-modal button[type="submit"] {
+  background-color: #ff8000;
+  color: #fff;
+  border: none;
+  padding: 1rem;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.signup-modal button[type="submit"]:hover {
+  background-color: #e07000;
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #999;
+  cursor: pointer;
+}
