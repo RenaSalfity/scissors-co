@@ -3,6 +3,7 @@ html,
 body {
   min-height: 100vh; /* Allows the page to expand when needed */
   height: auto; /* Allows scrolling when content exceeds viewport */
+  
 }
 header {
   width: 100%;
@@ -27,6 +28,7 @@ body {
 main {
   flex-grow: 1;
   background-color: brown;
+  
 }
 
 header,

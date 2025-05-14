@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./Login";
 import Admin from "./Admin";
@@ -14,13 +14,20 @@ import Appointments from "./Appointments";
 import Employees from "./Employees";
 import BookingPage from "./BookingPage";
 import Customers from "./Customers";
-import Settings from "./Settings"; 
+import Settings from "./Settings";
 
 function MyRoutes() {
   const [user, setUser] = useState(() => {
     const savedUser = sessionStorage.getItem("user");
     return savedUser ? JSON.parse(savedUser) : null;
   });
+  useEffect(() => {
+    if (user) {
+      document.body.classList.add("with-background");
+    } else {
+      document.body.classList.remove("with-background");
+    }
+  }, [user]);
 
   return (
     <>
