@@ -4,7 +4,7 @@ import axios from "axios";
 import "../assets/styles/SinglePost.css";
 
 function SinglePost({ user }) {
-  const { id } = useParams(); // ✅ Get category ID from URL
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [category, setCategory] = useState(null);
@@ -13,9 +13,11 @@ function SinglePost({ user }) {
   const [newService, setNewService] = useState({
     name: "",
     price: "",
-    time: "",
+    time: 15,
   });
   const [editService, setEditService] = useState(null);
+
+  const durationOptions = Array.from({ length: 8 }, (_, i) => (i + 1) * 15);
 
   useEffect(() => {
     axios
@@ -35,6 +37,12 @@ function SinglePost({ user }) {
 
   const handleAddService = (e) => {
     e.preventDefault();
+
+    if (Number(newService.price) <= 0) {
+      alert("Price must be greater than 0");
+      return;
+    }
+
     axios
       .post(`http://localhost:5001/services`, {
         ...newService,
@@ -42,7 +50,7 @@ function SinglePost({ user }) {
       })
       .then(() => {
         setShowForm(false);
-        setNewService({ name: "", price: "", time: "" });
+        setNewService({ name: "", price: "", time: 15 });
         fetchServices();
       })
       .catch((err) => console.error("Error adding service:", err));
@@ -50,6 +58,12 @@ function SinglePost({ user }) {
 
   const handleEditService = (e) => {
     e.preventDefault();
+
+    if (Number(editService.price) <= 0) {
+      alert("Price must be greater than 0");
+      return;
+    }
+
     axios
       .put(
         `http://localhost:5001/services/${editService.id}`,
@@ -96,7 +110,6 @@ function SinglePost({ user }) {
     <div className="single-post">
       <h1 className="post-title">{category.name}</h1>
 
-      {/* ✅ Back Button */}
       <button onClick={() => navigate("/")} className="back-button">
         ← Back to Main Page
       </button>
@@ -172,21 +185,35 @@ function SinglePost({ user }) {
               <input
                 type="number"
                 placeholder="Price (₪)"
+                min="1"
                 value={newService.price}
                 onChange={(e) =>
                   setNewService({ ...newService, price: e.target.value })
                 }
                 required
               />
-              <input
-                type="number"
-                placeholder="Time (min)"
+              <select
                 value={newService.time}
                 onChange={(e) =>
-                  setNewService({ ...newService, time: e.target.value })
+                  setNewService({
+                    ...newService,
+                    time: parseInt(e.target.value),
+                  })
                 }
                 required
-              />
+              >
+                {durationOptions.map((min) => (
+                  <option key={min} value={min}>
+                    {min < 60
+                      ? `${min} minutes`
+                      : min === 60
+                      ? `1 hour`
+                      : `${Math.floor(min / 60)} hour${
+                          min % 60 ? ` ${min % 60}` : ""
+                        }`}
+                  </option>
+                ))}
+              </select>
               <button type="submit">Save Service</button>
             </form>
           )}
@@ -206,21 +233,35 @@ function SinglePost({ user }) {
               <input
                 type="number"
                 placeholder="Price (₪)"
+                min="1"
                 value={editService.price}
                 onChange={(e) =>
                   setEditService({ ...editService, price: e.target.value })
                 }
                 required
               />
-              <input
-                type="number"
-                placeholder="Time (min)"
+              <select
                 value={editService.time}
                 onChange={(e) =>
-                  setEditService({ ...editService, time: e.target.value })
+                  setEditService({
+                    ...editService,
+                    time: parseInt(e.target.value),
+                  })
                 }
                 required
-              />
+              >
+                {durationOptions.map((min) => (
+                  <option key={min} value={min}>
+                    {min < 60
+                      ? `${min} minutes`
+                      : min === 60
+                      ? `1 hour`
+                      : `${Math.floor(min / 60)} hour${
+                          min % 60 ? ` ${min % 60}` : ""
+                        }`}
+                  </option>
+                ))}
+              </select>
               <button type="submit" className="update-service-btn">
                 Update Service
               </button>
