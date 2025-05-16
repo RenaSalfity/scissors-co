@@ -5,6 +5,15 @@ const bcrypt = require("bcrypt");
 const multer = require("multer");
 const path = require("path");
 const authRoutes = require("./routes/auth");
+const emailVerifications = {};
+const nodemailer = require("nodemailer");
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "scissorsco2025@gmail.com",
+    pass: "houh fuha uoft bjgl",
+  },
+});
 
 const PORT = process.env.PORT || 5001;
 
@@ -596,5 +605,63 @@ app.get("/users/:email", (req, res) => {
     }
 
     res.json(result[0]);
+  });
+});
+
+app.post("/api/send-code", (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email required" });
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000; // valid for 10 minutes
+  emailVerifications[email] = { code, expiresAt };
+
+  const mailOptions = {
+    from: "Scissors&Co <scissorsco2025@gmail.com>",
+    to: email,
+    subject: "Your Scissors&Co Verification Code",
+    text: `Your verification code is: ${code}`,
+  };
+
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) {
+      console.error("❌ Failed to send email:", err);
+      return res.status(500).json({ error: "Failed to send email" });
+    }
+    res.json({ message: "Verification code sent" });
+  });
+});
+
+// ✅ Route to verify the code
+app.post("/api/verify-code", (req, res) => {
+  const { email, code } = req.body;
+  const record = emailVerifications[email];
+  if (!record || record.code !== code || Date.now() > record.expiresAt) {
+    return res.status(400).json({ error: "Invalid or expired code" });
+  }
+
+  emailVerifications[email].verified = true;
+  res.json({ message: "Email verified" });
+});
+
+// ✅ Modified signup route (ensure email is verified first)
+app.post("/api/auth/signup", (req, res) => {
+  const { name, phone, email, password } = req.body;
+
+  const record = emailVerifications[email];
+  if (!record || !record.verified) {
+    return res.status(403).json({ error: "Email not verified" });
+  }
+
+  bcrypt.hash(password, 10, (err, hash) => {
+    if (err) return res.status(500).json({ error: "Hashing failed" });
+
+    const sql =
+      "INSERT INTO users (name, phone, email, password, role) VALUES (?, ?, ?, ?, 'Customer')";
+    db.query(sql, [name, phone, email, hash], (err, result) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      delete emailVerifications[email];
+      res.status(201).json({ message: "Signup successful" });
+    });
   });
 });

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import axios from "axios";
 import "../assets/styles/SignUpModal.css";
@@ -9,6 +8,11 @@ function SignUpModal({ onClose, onSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // ✨ Verification states
+  const [codeSent, setCodeSent] = useState(false);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
 
   const validateInput = () => {
     if (!/^[A-Za-z]{2,}$/.test(name)) {
@@ -26,6 +30,43 @@ function SignUpModal({ onClose, onSuccess }) {
     return null;
   };
 
+  const sendVerificationCode = async () => {
+    setError("");
+    if (!email) {
+      setError("Enter your email first.");
+      return;
+    }
+
+    try {
+      const res = await axios.post("http://localhost:5001/api/send-code", {
+        email,
+      });
+      setCodeSent(true);
+      alert("Verification code sent to your email.");
+    } catch (err) {
+      console.error("Send code error:", err);
+      setError("Failed to send code.");
+    }
+  };
+
+  const verifyEnteredCode = async () => {
+    try {
+      const res = await axios.post("http://localhost:5001/api/verify-code", {
+        email,
+        code: verifyCode,
+      });
+
+      if (res.data.verified) {
+        setIsVerified(true);
+        alert("Email verified! You can now sign up.");
+      } else {
+        setError("Incorrect verification code.");
+      }
+    } catch (err) {
+      setError("Verification failed.");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -36,13 +77,21 @@ function SignUpModal({ onClose, onSuccess }) {
       return;
     }
 
+    if (!isVerified) {
+      setError("Please verify your email first.");
+      return;
+    }
+
     try {
-      const response = await axios.post("http://localhost:5001/api/auth/signup", {
-        name: name.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-        password
-      });
+      const response = await axios.post(
+        "http://localhost:5001/api/auth/signup",
+        {
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          password,
+        }
+      );
 
       alert("Signup successful!");
       if (onSuccess) onSuccess();
@@ -57,7 +106,9 @@ function SignUpModal({ onClose, onSuccess }) {
   return (
     <div className="signup-modal-backdrop">
       <div className="signup-modal">
-        <button className="close-btn" onClick={onClose}>×</button>
+        <button className="close-btn" onClick={onClose}>
+          ×
+        </button>
         <h2>Sign Up</h2>
         <form onSubmit={handleSubmit}>
           <input
@@ -76,11 +127,35 @@ function SignUpModal({ onClose, onSuccess }) {
           />
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Enter your email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={codeSent}
           />
+
+          {/* Email verification */}
+          {!isVerified && (
+            <>
+              <button type="button" onClick={sendVerificationCode}>
+                Send Verification Code
+              </button>
+              {codeSent && (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Enter Code"
+                    value={verifyCode}
+                    onChange={(e) => setVerifyCode(e.target.value)}
+                  />
+                  <button type="button" onClick={verifyEnteredCode}>
+                    Verify Code
+                  </button>
+                </>
+              )}
+            </>
+          )}
+
           <input
             type="password"
             placeholder="Password"
@@ -89,7 +164,9 @@ function SignUpModal({ onClose, onSuccess }) {
             required
           />
           {error && <p className="error">{error}</p>}
-          <button type="submit">Sign Up</button>
+          <button type="submit" disabled={!isVerified}>
+            Sign Up
+          </button>
         </form>
       </div>
     </div>
