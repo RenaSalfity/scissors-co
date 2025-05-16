@@ -547,24 +547,54 @@ app.put("/api/users/:id/profile", (req, res) => {
   const { id } = req.params;
   const { name, oldPassword, newPassword } = req.body;
 
-  const getUserSql = "SELECT password FROM users WHERE id = ?";
+  const getUserSql = "SELECT email, name, password FROM users WHERE id = ?";
   db.query(getUserSql, [id], (err, results) => {
     if (err || results.length === 0)
       return res.status(500).json({ error: "User not found" });
 
     const user = results[0];
+    const userEmail = user.email;
+    const oldName = user.name;
+
+    const sendNotification = (changesText) => {
+      const mailOptions = {
+        from: "Scissors&Co <scissorsco2025@gmail.com>",
+        to: userEmail,
+        subject: "Your profile was updated",
+        text: `Hi ${name},\n\n${changesText}\n\nIf you did not make this change, please contact support immediately.\n\n— Scissors & Co.`,
+      };
+
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error("❌ Failed to send profile update email:", error);
+        } else {
+          console.log("✅ Profile update email sent:", info.response);
+        }
+      });
+    };
 
     const updateName = () => {
       db.query("UPDATE users SET name = ? WHERE id = ?", [name, id], (err) => {
         if (err)
           return res.status(500).json({ error: "Failed to update name" });
+
+        let changesText = "";
+        if (oldName !== name) {
+          changesText = `Your name was updated from "${oldName}" to "${name}".`;
+        } else {
+          changesText = `Your profile was updated (no visible changes).`;
+        }
+
+        sendNotification(changesText);
         res.json({ message: "Profile updated" });
       });
     };
 
+    // 🟠 If no password is being updated — just update name
     if (!newPassword) {
-      updateName(); // just update name
+      updateName();
     } else {
+      // 🔐 Update password after verifying old password
       bcrypt.compare(oldPassword, user.password, (err, match) => {
         if (err || !match)
           return res.status(401).json({ error: "Incorrect old password" });
@@ -580,6 +610,18 @@ app.put("/api/users/:id/profile", (req, res) => {
                 return res
                   .status(500)
                   .json({ error: "Failed to update profile" });
+
+              let changesText = "";
+
+              if (oldName !== name && newPassword) {
+                changesText = `Your name was updated from "${oldName}" to "${name}", and your password was changed.`;
+              } else if (oldName !== name) {
+                changesText = `Your name was updated from "${oldName}" to "${name}".`;
+              } else {
+                changesText = `Your password was changed.`;
+              }
+
+              sendNotification(changesText);
               res.json({ message: "Profile and password updated" });
             }
           );
@@ -588,6 +630,7 @@ app.put("/api/users/:id/profile", (req, res) => {
     }
   });
 });
+
 
 // ✅ Get user details by email (used in Settings.jsx)
 app.get("/users/:email", (req, res) => {
