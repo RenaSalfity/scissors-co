@@ -1,60 +1,69 @@
 .settings-container {
-  min-height: calc(100vh - 60px); /* Already good */
+  min-height: calc(100vh - 60px);
   display: flex;
-  justify-content: center;
-  align-items: start;
+  flex-direction: column;
+  align-items: center;
   padding-top: 100px;
-  padding-bottom: 120px; /* ✅ Add enough padding to avoid footer overlap */
+  padding-bottom: 120px;
+}
+.settings-cards-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+  justify-content: center;
+  width: 100%;
+  max-width: 1200px;
 }
 
-
 .settings-card {
+  flex: 1;
+  min-width: 350px;
+  max-width: 550px;
   background: white;
   padding: 40px;
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  width: 100%;
-  max-width: 1100px; /* ⬅ יותר מקום לטפסים זה ליד זה */
 }
 
-.settings-title {
+.settings-title,
+.settings-card h2 {
   text-align: center;
   color: #c45700;
-  margin-bottom: 30px;
+  margin-bottom: 25px;
 }
 
-.settings-flex {
+.settings-form {
   display: flex;
-  gap: 40px;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.form-left,
-.form-right {
-  flex: 1;
-  min-width: 300px;
-}
-
-/* ===== פרטים אישיים ===== */
 .settings-form label {
   color: #333;
-  display: block;
-  margin-top: 15px;
   font-weight: bold;
+  margin-bottom: 6px;
 }
 
-.settings-form input {
-  width: 100%;
+.settings-form input[type="text"],
+.settings-form input[type="email"],
+.settings-form input[type="password"],
+.settings-form input[type="date"],
+.settings-form input[type="file"],
+.settings-form select {
   padding: 10px;
-  margin-top: 5px;
-  border-radius: 6px;
+  font-size: 1rem;
   border: 1px solid #ccc;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.settings-form select {
+  cursor: pointer;
 }
 
 .save-btn {
   width: 100%;
-  margin-top: 25px;
+  margin-top: 15px;
   padding: 12px;
   background: black;
   color: white;
@@ -62,47 +71,16 @@
   border-radius: 6px;
   cursor: pointer;
   font-size: 1em;
-  transition: 0.3s;
+  transition: 0.3s ease;
 }
 
 .save-btn:hover {
-  background: #333;
+  background-color: #333;
 }
 
 .settings-message {
-  text-align: center;
-  margin-top: 20px;
-  font-weight: bold;
-  color: green;
-}
-
-/* ===== שעות פעילות עסק ===== */
-.business-hours {
-  margin-top: 0; /* כי היא בצד */
-}
-
-.business-hours h3 {
-  text-align: center;
-  color: #c45700;
-  margin-bottom: 15px;
-}
-
-.hours-table {
-  width: 100%;
-  border-collapse: collapse;
   margin-top: 10px;
-  color: #333;
-}
-
-.hours-table th,
-.hours-table td {
-  border: 1px solid #ccc;
-  padding: 10px;
+  color: green;
+  font-weight: bold;
   text-align: center;
-}
-
-.hours-table select {
-  padding: 6px;
-  border-radius: 4px;
-  width: 100%;
 }

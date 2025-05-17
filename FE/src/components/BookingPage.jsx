@@ -9,17 +9,18 @@ function BookingPage({ user }) {
 
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [filteredTimes, setFilteredTimes] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [form, setForm] = useState({
     serviceId: "",
     employeeId: "",
     date: "",
     time: "",
   });
-  const [filteredTimes, setFilteredTimes] = useState([]);
 
   useEffect(() => {
     fetchServices();
-    fetchEmployees();
 
     if (preselectedService) {
       setForm((prev) => {
@@ -43,23 +44,60 @@ function BookingPage({ user }) {
       .catch((err) => console.error("Error loading services:", err));
   };
 
-  const fetchEmployees = () => {
+  const fetchAvailableEmployees = (date) => {
     axios
-      .get("http://localhost:5001/api/employees")
-      .then((res) => setEmployees(res.data))
-      .catch((err) => console.error("Error loading employees:", err));
+      .get("http://localhost:5001/api/employees/available", {
+        params: { date },
+      })
+      .then((res) => {
+        // ❌ Exclude the logged-in user (employee) from the list
+        const filtered = res.data.filter((emp) => emp.id !== user.id);
+        setEmployees(filtered);
+      })
+      .catch((err) => {
+        console.error("Error loading available employees:", err);
+        setEmployees([]);
+      });
+  };
+  
+
+  const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
+    const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
+
+    console.log("📅 Fetching slots for:", {
+      serviceId,
+      employeeId,
+      date: normalizedDate,
+    });
+
+    axios
+      .get("http://localhost:5001/api/available-times", {
+        params: {
+          serviceId,
+          employeeId,
+          date: normalizedDate,
+        },
+      })
+      .then((res) => setFilteredTimes(res.data))
+      .catch((err) => {
+        console.error("Failed to load times:", err);
+        setFilteredTimes([]);
+      });
   };
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     const updatedForm = { ...form, [name]: value };
 
-    // Include preselected serviceId if missing
     if (!updatedForm.serviceId && preselectedService) {
       updatedForm.serviceId = preselectedService.id;
     }
 
     setForm(updatedForm);
+
+    if (name === "date" && value) {
+      fetchAvailableEmployees(value);
+    }
 
     const { serviceId, employeeId, date } = updatedForm;
     if (serviceId && employeeId && date) {
@@ -67,30 +105,23 @@ function BookingPage({ user }) {
     }
   };
 
-  const fetchAvailableTimes = (serviceId, employeeId, date) => {
-    axios
-      .get(
-        `http://localhost:5001/api/available-times?serviceId=${serviceId}&employeeId=${employeeId}&date=${date}`
-      )
-      .then((res) => setFilteredTimes(res.data))
-      .catch((err) => console.error("Failed to load times:", err));
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const payload = { ...form, customerEmail: user.email };
 
-    axios
-      .post("http://localhost:5001/api/appointments", payload)
-      .then(() => {
-        alert("Appointment booked!");
-        setForm({ serviceId: "", employeeId: "", date: "", time: "" });
-        setFilteredTimes([]);
-      })
-      .catch((err) => {
-        console.error("Failed to book appointment:", err);
-        alert("Booking failed.");
-      });
+    try {
+      await axios.post("http://localhost:5001/api/appointments", payload);
+      alert("Appointment booked!");
+      setForm({ serviceId: "", employeeId: "", date: "", time: "" });
+      setFilteredTimes([]);
+      setEmployees([]);
+    } catch (err) {
+      console.error("Failed to book appointment:", err);
+      alert("Booking failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const today = new Date();
@@ -164,7 +195,9 @@ function BookingPage({ user }) {
           ))}
         </select>
 
-        <button type="submit">Book Appointment</button>
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Booking..." : "Book Appointment"}
+        </button>
       </form>
     </div>
   );
