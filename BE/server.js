@@ -1139,7 +1139,7 @@ app.get("/api/employees/available", (req, res) => {
   });
 });
 
-// ✅ Book an appointment
+// ✅ Book an appointment and send email
 app.post("/api/appointments", (req, res) => {
   const { customerEmail, serviceId, employeeId, date, time } = req.body;
 
@@ -1147,34 +1147,94 @@ app.post("/api/appointments", (req, res) => {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  // Step 1: Get customer ID from email
-  const getUserSql = "SELECT id FROM users WHERE email = ?";
-  db.query(getUserSql, [customerEmail], (err, userResult) => {
+  // Step 1: Get customer ID and name from email
+  const userSql = "SELECT id, name FROM users WHERE email = ?";
+  db.query(userSql, [customerEmail], (err, userResult) => {
     if (err || userResult.length === 0) {
       return res.status(400).json({ error: "Customer not found" });
     }
 
     const customerId = userResult[0].id;
+    const customerName = userResult[0].name;
 
-    // Step 2: Insert appointment
-    const insertSql = `
-      INSERT INTO appointments (customer_id, employee_id, service_id, date, time, status)
-      VALUES (?, ?, ?, ?, ?, 'pending')
-    `;
+    // Step 2: Get employee name and email
+    const employeeSql = "SELECT name, email FROM users WHERE id = ?";
+    db.query(employeeSql, [employeeId], (err2, empResult) => {
+      if (err2 || empResult.length === 0) {
+        return res.status(400).json({ error: "Employee not found" });
+      }
 
-    db.query(
-      insertSql,
-      [customerId, employeeId, serviceId, date, time],
-      (err2, result) => {
-        if (err2) {
-          console.error("❌ Failed to insert appointment:", err2);
-          return res
-            .status(500)
-            .json({ error: "Database error", details: err2 });
+      const employeeName = empResult[0].name;
+      const employeeEmail = empResult[0].email;
+
+      // Step 3: Get service name
+      const serviceSql = "SELECT name FROM services WHERE id = ?";
+      db.query(serviceSql, [serviceId], (err3, serviceResult) => {
+        if (err3 || serviceResult.length === 0) {
+          return res.status(400).json({ error: "Service not found" });
         }
 
-        res.status(201).json({ message: "Appointment booked successfully" });
-      }
-    );
+        const serviceName = serviceResult[0].name;
+
+        // Step 4: Insert appointment
+        const insertSql = `
+          INSERT INTO appointments (customer_id, employee_id, service_id, date, time, status)
+          VALUES (?, ?, ?, ?, ?, 'pending')
+        `;
+        db.query(
+          insertSql,
+          [customerId, employeeId, serviceId, date, time],
+          (err4, result) => {
+            if (err4) {
+              console.error("❌ Failed to insert appointment:", err4);
+              return res
+                .status(500)
+                .json({ error: "Database error", details: err4 });
+            }
+
+            // Format date (DD/MM/YYYY)
+            const [year, month, day] = date.split("-");
+            const formattedDate = `${day}/${month}/${year}`;
+
+            // Step 5: Send email to customer
+            const mailToCustomer = {
+              from: "Scissors&Co <scissorsco2025@gmail.com>",
+              to: customerEmail,
+              subject: "Your Appointment is Pending – Scissors & Co.",
+              text: `Hello ${customerName},\n\nYour appointment is pending for ${formattedDate} at ${time} for "${serviceName}".\n\n— Scissors & Co.`,
+            };
+
+            transporter.sendMail(mailToCustomer, (err5) => {
+              if (err5) {
+                console.error("❌ Failed to send confirmation email:", err5);
+              } else {
+                console.log("📧 Customer appointment email sent.");
+              }
+            });
+
+            // Step 6: Send email to employee
+            const mailToEmployee = {
+              from: "Scissors&Co <scissorsco2025@gmail.com>",
+              to: employeeEmail,
+              subject: "New Appointment Request – Scissors & Co.",
+              text: `Hello ${employeeName},\n\nA new client has booked you for ${formattedDate} at ${time} for "${serviceName}".\n\n— Scissors & Co.`,
+            };
+
+            transporter.sendMail(mailToEmployee, (err6) => {
+              if (err6) {
+                console.error("❌ Failed to notify employee:", err6);
+              } else {
+                console.log("📧 Employee notified.");
+              }
+            });
+
+            res
+              .status(201)
+              .json({ message: "Appointment booked and emails sent." });
+          }
+        );
+      });
+    });
   });
 });
+
