@@ -12,8 +12,23 @@ function Settings({ user }) {
 
   const [message, setMessage] = useState("");
   const [businessHours, setBusinessHours] = useState(
-    Array(7).fill({ open: "08:00", close: "17:00" })
+    Array(7).fill({ open: "09:00", close: "23:00" })
   );
+
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const timeOptions = Array.from({ length: 15 }, (_, i) => {
+    const hour = 9 + Math.floor(i / 2);
+    const minute = i % 2 === 0 ? "00" : "30";
+    return `${hour.toString().padStart(2, "0")}:${minute}`;
+  });
 
   useEffect(() => {
     if (user?.email) {
@@ -32,9 +47,16 @@ function Settings({ user }) {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleHoursChange = (index, field, value) => {
+    setBusinessHours((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const { name, oldPassword, newPassword } = form;
 
     if (!name.trim()) {
@@ -50,7 +72,7 @@ function Settings({ user }) {
     }
 
     try {
-      const payload = { name };
+      const payload = { name, businessHours };
       if (newPassword) {
         if (!oldPassword) {
           setMessage("Please enter your current password.");
@@ -110,10 +132,41 @@ function Settings({ user }) {
             onChange={handleChange}
           />
 
+          <h3>Business Hours</h3>
+          {days.map((day, index) => (
+            <div key={day} className="business-hours-row">
+              <label>{day}</label>
+              <select
+                value={businessHours[index].open}
+                onChange={(e) =>
+                  handleHoursChange(index, "open", e.target.value)
+                }
+              >
+                {timeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+              <span>to</span>
+              <select
+                value={businessHours[index].close}
+                onChange={(e) =>
+                  handleHoursChange(index, "close", e.target.value)
+                }
+              >
+                {timeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+
           <button type="submit" className="save-btn">
             Save Changes
           </button>
-
           {message && <p className="settings-message">{message}</p>}
         </form>
       </div>
