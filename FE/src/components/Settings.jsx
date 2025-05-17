@@ -24,11 +24,12 @@ function Settings({ user }) {
     "Friday",
     "Saturday",
   ];
-  const timeOptions = Array.from({ length: 15 }, (_, i) => {
-    const hour = 9 + Math.floor(i / 2);
-    const minute = i % 2 === 0 ? "00" : "30";
-    return `${hour.toString().padStart(2, "0")}:${minute}`;
-  });
+
+  const timeOptions = [];
+  for (let h = 9; h <= 23; h++) {
+    timeOptions.push(`${h.toString().padStart(2, "0")}:00`);
+    if (h < 23) timeOptions.push(`${h.toString().padStart(2, "0")}:30`);
+  }
 
   useEffect(() => {
     if (user?.email) {
@@ -155,11 +156,13 @@ function Settings({ user }) {
                   handleHoursChange(index, "close", e.target.value)
                 }
               >
-                {timeOptions.map((time) => (
-                  <option key={time} value={time}>
-                    {time}
-                  </option>
-                ))}
+                {timeOptions
+                  .filter((time) => time > businessHours[index].open)
+                  .map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
               </select>
             </div>
           ))}
