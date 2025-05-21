@@ -25,21 +25,25 @@ function Header({ user, setUser }) {
           </Link>
         </div>
 
-        {/* ✅ Only show navigation if user is logged in and not on login page */}
         {user && location.pathname !== "/login" && (
           <nav>
             <ul className="menu">
               <li>
                 <NavLink to="/">Home</NavLink>
               </li>
-              <li>
-                <NavLink to="/about">About</NavLink>
-              </li>
-              <li>
-                <NavLink to="/contact">Contact</NavLink>
-              </li>
 
-              {/* ✅ Admin-specific links */}
+              {user.role === "Customer" && (
+                <li>
+                  <NavLink to="/about">About</NavLink>
+                </li>
+              )}
+
+              {user.role !== "Employee" && (
+                <li>
+                  <NavLink to="/contact">Contact</NavLink>
+                </li>
+              )}
+
               {user.role === "Admin" && (
                 <>
                   <li>
@@ -54,14 +58,12 @@ function Header({ user, setUser }) {
                 </>
               )}
 
-              {/* ✅ Employee-specific appointments tab */}
               {user.role === "Employee" && (
                 <li>
-                  <NavLink to="/employee/appointments">Appointments</NavLink>
+                  <NavLink to="/employee/services">Services</NavLink>
                 </li>
               )}
 
-              {/* ✅ Settings link for all roles */}
               <li>
                 <NavLink to="/settings">Settings</NavLink>
               </li>

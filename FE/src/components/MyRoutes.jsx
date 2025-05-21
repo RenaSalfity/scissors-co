@@ -21,6 +21,7 @@ function MyRoutes() {
     const savedUser = sessionStorage.getItem("user");
     return savedUser ? JSON.parse(savedUser) : null;
   });
+
   useEffect(() => {
     if (user) {
       document.body.classList.add("with-background");
@@ -38,12 +39,14 @@ function MyRoutes() {
         ) : (
           <>
             {/* ✅ Public routes for all logged-in users */}
-            <Route path="/about" element={<About />} />
+            {user.role === "Customer" && (
+              <Route path="/about" element={<About />} />
+            )}
             <Route path="/contact" element={<Contact />} />
             <Route path="/booking" element={<BookingPage user={user} />} />
-            <Route path="/settings" element={<Settings user={user} />} />{" "}
-            {/* ✅ NEW */}
+            <Route path="/settings" element={<Settings user={user} />} />
             <Route path="/post/:id" element={<SinglePost user={user} />} />
+
             {/* ✅ Admin routes */}
             {user.role === "Admin" && (
               <>
@@ -57,20 +60,23 @@ function MyRoutes() {
                 <Route path="/edit-category/:id" element={<EditCategory />} />
               </>
             )}
+
             {/* ✅ Customer route */}
             {user.role === "Customer" && (
               <Route path="/customer" element={<Customer />} />
             )}
+
             {/* ✅ Employee routes */}
             {user.role === "Employee" && (
               <>
-                <Route path="/employee" element={<Employee />} />
                 <Route
-                  path="/employee/appointments"
+                  path="/employee"
                   element={<Appointments user={user} />}
                 />
+                <Route path="/employee/services" element={<Employee />} />
               </>
             )}
+
             {/* ✅ Catch-all redirect to role homepage */}
             <Route
               path="*"
