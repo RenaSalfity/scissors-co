@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable"; // ✅ Correct import
 import "../assets/styles/Appointments.css";
 import SignUpModal from "./SignUpModal";
 
@@ -26,10 +28,65 @@ function Appointments({ user }) {
     time: "",
   });
 
+  const totalRevenue = appointments.reduce((sum, appt) => {
+    const price = parseFloat(appt.price);
+    return sum + (isNaN(price) ? 0 : price);
+  }, 0);
+  
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Appointments Report", 14, 16);
+    autoTable(doc, {
+      startY: 20,
+      head: [
+        [
+          "Status",
+          "Date",
+          "Time",
+          "Customer",
+          ...(user.role === "Admin" ? ["Employee"] : []),
+          "Service",
+          "Price",
+        ],
+      ],
+      body: appointments.map((appt) => [
+        appt.status,
+        appt.date,
+        appt.time,
+        appt.customer_name,
+        ...(user.role === "Admin" ? [appt.employee_name] : []),
+        appt.service_name,
+        `${appt.price} ILS`, // ✅ No more weird symbols
+      ]),
+    });
+
+    const totalBeforeTax = totalRevenue / 1.18;
+    const taxAmount = totalRevenue - totalBeforeTax;
+
+    doc.text(
+      `Total Before Tax: ${totalBeforeTax.toFixed(2)} ILS`,
+      14,
+      doc.lastAutoTable.finalY + 20
+    );
+    doc.text(
+      `VAT (18%): ${taxAmount.toFixed(2)} ILS`,
+      14,
+      doc.lastAutoTable.finalY + 30
+    );
+    doc.text(
+      `Total Revenue: ${totalRevenue.toFixed(2)} ILS`,
+      14,
+      doc.lastAutoTable.finalY + 40
+    );
+
+    doc.save("appointments_report.pdf");
+  };
+  
+  
+
   useEffect(() => {
-    if (viewMode !== "custom") {
-      fetchAppointments();
-    }
+    if (viewMode !== "custom") fetchAppointments();
   }, [viewMode]);
 
   useEffect(() => {
@@ -38,11 +95,8 @@ function Appointments({ user }) {
   }, []);
 
   useEffect(() => {
-    if (selectedCategory) {
-      fetchServicesByCategory(selectedCategory);
-    } else {
-      setServices([]);
-    }
+    if (selectedCategory) fetchServicesByCategory(selectedCategory);
+    else setServices([]);
   }, [selectedCategory]);
 
   const fetchAppointments = () => {
@@ -80,7 +134,7 @@ function Appointments({ user }) {
       )
       .then((res) => {
         setAppointments(res.data);
-        setViewMode("custom"); // avoid interference with view mode
+        setViewMode("custom");
       })
       .catch((err) => {
         console.error("❌ Failed to filter appointments by date:", err);
@@ -125,22 +179,17 @@ function Appointments({ user }) {
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
     const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
-
     axios
       .get("http://localhost:5001/api/available-times", {
         params: { serviceId, employeeId, date: normalizedDate },
       })
       .then((res) => setFilteredTimes(res.data))
-      .catch((err) => {
-        console.error("Failed to load times:", err);
-        setFilteredTimes([]);
-      });
+      .catch(() => setFilteredTimes([]));
   };
 
   const checkCustomerEmail = () => {
     const email = form.customerEmail.trim();
     if (!email) return;
-
     axios
       .get(`http://localhost:5001/api/users/check-email?email=${email}`)
       .then((res) => setEmailExists(res.data.exists))
@@ -150,11 +199,7 @@ function Appointments({ user }) {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     const updatedForm = { ...form, [name]: value };
-
-    if (name === "date" && value) {
-      fetchAvailableEmployees(value);
-    }
-
+    if (name === "date" && value) fetchAvailableEmployees(value);
     if (
       (name === "employeeId" && updatedForm.serviceId && updatedForm.date) ||
       (name === "serviceId" && updatedForm.employeeId && updatedForm.date)
@@ -165,7 +210,6 @@ function Appointments({ user }) {
         updatedForm.date
       );
     }
-
     setForm(updatedForm);
   };
 
@@ -289,9 +333,24 @@ function Appointments({ user }) {
             </tr>
           ))}
         </tbody>
+        <tfoot>
+          <tr>
+            <td
+              colSpan={user.role === "Admin" ? 5 : 4}
+              style={{ textAlign: "right", fontWeight: "bold" }}
+            >
+              Total:
+            </td>
+            <td style={{ fontWeight: "bold" }}>₪{totalRevenue.toFixed(2)}</td>
+          </tr>
+        </tfoot>
       </table>
 
-      {/* Booking Form */}
+      <div style={{ marginTop: "1rem", textAlign: "center" }}>
+        <button onClick={handleExportPDF}>Export to PDF</button>
+      </div>
+
+      {/* Booking Form for Customer */}
       <div className="book-appointment">
         <h2>Book an Appointment for Customer</h2>
         <input

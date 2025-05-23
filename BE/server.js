@@ -421,137 +421,7 @@ app.get("/api/holidays/:employeeId/disabled-dates", (req, res) => {
   });
 });
 
-// app.get("/api/debug/slots", (req, res) => {
-//   const date = req.query.date || new Date().toISOString().split("T")[0];
-//   const employeeId = req.query.employeeId || 6;
-//   const serviceId = req.query.serviceId || 1;
 
-//   const dayOfWeek = new Date(date).toLocaleDateString("en-US", {
-//     weekday: "long",
-//   });
-
-//   console.log("🌞 Day:", dayOfWeek);
-
-//   const debug = { step: "start", date, dayOfWeek };
-
-//   const fallbackDuration = 30;
-//   const slotInterval = 15;
-
-//   const durationQuery = "SELECT time FROM services WHERE id = ?";
-//   db.query(durationQuery, [serviceId], (err, result) => {
-//     if (err || result.length === 0) {
-//       return res.status(500).json({ error: "No service duration" });
-//     }
-
-//     const serviceDuration = result[0].time || fallbackDuration;
-//     debug.serviceDuration = serviceDuration;
-
-//     const hoursQuery = `
-//       SELECT start_time, end_time FROM working_hours
-//       WHERE employee_id IS NULL AND day_of_week = ?
-//       LIMIT 1
-//     `;
-//     db.query(hoursQuery, [dayOfWeek], (err2, hoursResult) => {
-//       if (err2 || hoursResult.length === 0) {
-//         return res.status(400).json({ error: "No working hours" });
-//       }
-
-//       const start_time = hoursResult[0].start_time.substring(0, 5);
-//       const end_time = hoursResult[0].end_time.substring(0, 5);
-//       debug.start_time = start_time;
-//       debug.end_time = end_time;
-
-//       const [openH, openM] = start_time.split(":").map(Number);
-//       const [closeH, closeM] = end_time.split(":").map(Number);
-//       const openMinutes = openH * 60 + openM;
-//       const closeMinutes = closeH * 60 + closeM;
-
-//       debug.openMinutes = openMinutes;
-//       debug.closeMinutes = closeMinutes;
-
-//       const apptQuery = `
-//         SELECT time, s.time AS serviceDuration
-//         FROM appointments a
-//         JOIN services s ON a.service_id = s.id
-//         WHERE a.employee_id = ? AND a.date = ?
-//       `;
-
-//       db.query(apptQuery, [employeeId, date], (err3, appts) => {
-//         if (err3) {
-//           return res.status(500).json({ error: "Appointments error" });
-//         }
-
-//         const booked = appts.map((appt) => {
-//           const [h, m] = appt.time.split(":").map(Number);
-//           const start = h * 60 + m;
-//           const end = start + appt.serviceDuration;
-//           return { start, end };
-//         });
-
-//         debug.booked = booked;
-
-//         const available = [];
-
-//         for (
-//           let t = openMinutes;
-//           t + serviceDuration <= closeMinutes;
-//           t += slotInterval
-//         ) {
-//           const end = t + serviceDuration;
-
-//           const overlaps = booked.some(
-//             (b) => Math.max(t, b.start) < Math.min(end, b.end)
-//           );
-
-//           if (!overlaps) {
-//             const hour = String(Math.floor(t / 60)).padStart(2, "0");
-//             const minute = String(t % 60).padStart(2, "0");
-//             available.push(`${hour}:${minute}`);
-//           }
-//         }
-
-//         debug.available = available;
-//         res.json(debug);
-//       });
-//     });
-//   });
-// });
-
-// ✅ Available times based on employee schedule and booked appointments
-// app.get("/api/available-times", (req, res) => {
-//   const { employeeId, date } = req.query;
-
-//   if (!employeeId || !date) {
-//     return res.status(400).json({ error: "Missing employeeId or date" });
-//   }
-
-//   // Define working hours
-//   const startHour = 9;
-//   const endHour = 17;
-//   const slotDuration = 30; // minutes
-
-//   const allSlots = [];
-//   for (let h = startHour; h < endHour; h++) {
-//     allSlots.push(`${h.toString().padStart(2, "0")}:00`);
-//     allSlots.push(`${h.toString().padStart(2, "0")}:30`);
-//   }
-
-//   const sql = `
-//     SELECT time FROM appointments
-//     WHERE employee_id = ? AND date = ?
-//   `;
-
-//   db.query(sql, [employeeId, date], (err, results) => {
-//     if (err) {
-//       return res.status(500).json({ error: "Database error", details: err });
-//     }
-
-//     const bookedTimes = results.map((r) => r.time);
-//     const available = allSlots.filter((slot) => !bookedTimes.includes(slot));
-
-//     res.json(available);
-//   });
-// });
 
 // ✅ Smart available-times endpoint with service duration + debug logs
 // app.get("/api/available-times", (req, res) => {
@@ -628,22 +498,20 @@ app.get("/api/holidays/:employeeId/disabled-dates", (req, res) => {
 //     });
 //   });
 // });
-app.post("/api/business-hours", (req, res) => {
+app.put("/api/business-hours", (req, res) => {
   const hours = req.body; // Array of 7 entries
 
   const sql = `
-    INSERT INTO working_hours (day_of_week, start_time, end_time)
-    VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    start_time = VALUES(start_time),
-    end_time = VALUES(end_time)
+    UPDATE working_hours
+    SET start_time = ?, end_time = ?
+    WHERE day_of_week = ?
   `;
 
   let completed = 0;
   let hasError = false;
 
   hours.forEach(({ day_of_week, start_time, end_time }) => {
-    db.query(sql, [day_of_week, start_time, end_time], (err) => {
+    db.query(sql, [start_time, end_time, day_of_week], (err) => {
       if (err && !hasError) {
         console.error("❌ Error updating business hour:", err);
         hasError = true;
@@ -652,11 +520,12 @@ app.post("/api/business-hours", (req, res) => {
 
       completed++;
       if (completed === hours.length && !hasError) {
-        res.json({ message: "Business hours saved." });
+        res.json({ message: "Business hours updated successfully." });
       }
     });
   });
 });
+
 
 app.get("/api/customers/details", (req, res) => {
   const sql = `
@@ -995,7 +864,6 @@ app.get("/api/business-hours", (req, res) => {
   const sql = `
     SELECT day_of_week, start_time, end_time
     FROM working_hours
-    WHERE employee_id IS NULL
     ORDER BY FIELD(day_of_week, 'Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
   `;
 
@@ -1008,35 +876,8 @@ app.get("/api/business-hours", (req, res) => {
   });
 });
 
-app.post("/api/business-hours", (req, res) => {
-  const hours = req.body; // Array of 7 entries
 
-  const sql = `
-    INSERT INTO working_hours (employee_id, day_of_week, start_time, end_time)
-    VALUES (NULL, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    start_time = VALUES(start_time),
-    end_time = VALUES(end_time)
-  `;
 
-  let completed = 0;
-  let hasError = false;
-
-  hours.forEach(({ day_of_week, start_time, end_time }) => {
-    db.query(sql, [day_of_week, start_time, end_time], (err) => {
-      if (err && !hasError) {
-        console.error("❌ Error updating business hour:", err);
-        hasError = true;
-        return res.status(500).json({ error: "Database error" });
-      }
-
-      completed++;
-      if (completed === hours.length && !hasError) {
-        res.json({ message: "Business hours saved." });
-      }
-    });
-  });
-});
 
 //if the employee was sick
 app.post("/api/holidays", upload.single("proof"), (req, res) => {
