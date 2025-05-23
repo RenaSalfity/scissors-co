@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/Appointments.css";
-import SignUpModal from "./SignUpModal"; // ✅ Modal signup component
+import SignUpModal from "./SignUpModal";
 
-function Appointments() {
+function Appointments({ user }) {
   const [appointments, setAppointments] = useState([]);
   const [viewMode, setViewMode] = useState("day");
   const [startDate, setStartDate] = useState("");
@@ -13,6 +13,7 @@ function Appointments() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [filteredTimes, setFilteredTimes] = useState([]);
 
   const [emailExists, setEmailExists] = useState(true);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
@@ -26,7 +27,9 @@ function Appointments() {
   });
 
   useEffect(() => {
-    fetchAppointments();
+    if (viewMode !== "custom") {
+      fetchAppointments();
+    }
   }, [viewMode]);
 
   useEffect(() => {
@@ -43,20 +46,45 @@ function Appointments() {
   }, [selectedCategory]);
 
   const fetchAppointments = () => {
+    const employeeParam =
+      user.role === "Employee"
+        ? `&employeeId=${user.id}`
+        : form.employeeId
+        ? `&employeeId=${form.employeeId}`
+        : "";
+
     axios
-      .get(`http://localhost:5001/api/appointments?view=${viewMode}`)
+      .get(
+        `http://localhost:5001/api/appointments?view=${viewMode}${employeeParam}`
+      )
       .then((res) => setAppointments(res.data))
       .catch((err) => console.error("Failed to fetch appointments:", err));
   };
 
   const handleFilterByDate = () => {
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+
+    const employeeParam =
+      user.role === "Employee"
+        ? `&employeeId=${user.id}`
+        : form.employeeId
+        ? `&employeeId=${form.employeeId}`
+        : "";
+
     axios
       .get(
-        `http://localhost:5001/api/appointments?start=${startDate}&end=${endDate}`
+        `http://localhost:5001/api/appointments?start=${startDate}&end=${endDate}${employeeParam}`
       )
-      .then((res) => setAppointments(res.data))
-      .catch((err) => console.error("Failed to filter appointments:", err));
+      .then((res) => {
+        setAppointments(res.data);
+        setViewMode("custom"); // avoid interference with view mode
+      })
+      .catch((err) => {
+        console.error("❌ Failed to filter appointments by date:", err);
+      });
   };
 
   const fetchCategories = () => {
@@ -80,31 +108,91 @@ function Appointments() {
       .catch((err) => console.error("Failed to load employees:", err));
   };
 
+  const fetchAvailableEmployees = (date) => {
+    axios
+      .get("http://localhost:5001/api/employees/available", {
+        params: { date },
+      })
+      .then((res) => {
+        const filtered = res.data.filter((emp) => emp.id !== user.id);
+        setEmployees(filtered);
+      })
+      .catch((err) => {
+        console.error("Error loading available employees:", err);
+        setEmployees([]);
+      });
+  };
+
+  const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
+    const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
+
+    axios
+      .get("http://localhost:5001/api/available-times", {
+        params: { serviceId, employeeId, date: normalizedDate },
+      })
+      .then((res) => setFilteredTimes(res.data))
+      .catch((err) => {
+        console.error("Failed to load times:", err);
+        setFilteredTimes([]);
+      });
+  };
+
   const checkCustomerEmail = () => {
     const email = form.customerEmail.trim();
     if (!email) return;
 
     axios
       .get(`http://localhost:5001/api/users/check-email?email=${email}`)
-      .then((res) => {
-        setEmailExists(res.data.exists);
-      })
-      .catch((err) => {
-        console.error("Error checking email:", err);
-        setEmailExists(true); // safe fallback
-      });
+      .then((res) => setEmailExists(res.data.exists))
+      .catch(() => setEmailExists(true));
   };
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const updatedForm = { ...form, [name]: value };
+
+    if (name === "date" && value) {
+      fetchAvailableEmployees(value);
+    }
+
+    if (
+      (name === "employeeId" && updatedForm.serviceId && updatedForm.date) ||
+      (name === "serviceId" && updatedForm.employeeId && updatedForm.date)
+    ) {
+      fetchAvailableTimes(
+        updatedForm.serviceId,
+        updatedForm.employeeId,
+        updatedForm.date
+      );
+    }
+
+    setForm(updatedForm);
   };
 
   const handleCreateAppointment = () => {
+    const payload = {
+      customerEmail: form.customerEmail.trim(),
+      serviceId: form.serviceId,
+      employeeId: form.employeeId,
+      date: form.date,
+      time: form.time,
+    };
+
+    if (
+      !payload.customerEmail ||
+      !payload.serviceId ||
+      !payload.employeeId ||
+      !payload.date ||
+      !payload.time
+    ) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
     axios
-      .post("http://localhost:5001/api/appointments", form)
+      .post("http://localhost:5001/api/appointments", payload)
       .then(() => {
-        alert("Appointment created!");
+        alert("Appointment booked successfully!");
         fetchAppointments();
         setForm({
           customerEmail: "",
@@ -115,9 +203,13 @@ function Appointments() {
         });
         setSelectedCategory("");
         setServices([]);
+        setFilteredTimes([]);
         setEmailExists(true);
       })
-      .catch((err) => console.error("Failed to create appointment:", err));
+      .catch((err) => {
+        console.error("❌ Failed to create appointment:", err);
+        alert("Booking failed.");
+      });
   };
 
   return (
@@ -127,11 +219,34 @@ function Appointments() {
       {/* Filters */}
       <div className="filters">
         <label>View Mode:</label>
-        <select onChange={(e) => setViewMode(e.target.value)} value={viewMode}>
+        <select
+          onChange={(e) => setViewMode(e.target.value)}
+          value={viewMode === "custom" ? "" : viewMode}
+        >
           <option value="day">Daily</option>
           <option value="week">Weekly</option>
           <option value="year">Yearly</option>
         </select>
+
+        {user.role === "Admin" && (
+          <>
+            <label>Filter by Employee:</label>
+            <select
+              value={form.employeeId}
+              name="employeeId"
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, employeeId: e.target.value }))
+              }
+            >
+              <option value="">All Employees</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
 
         <label>Start Date:</label>
         <input
@@ -155,7 +270,7 @@ function Appointments() {
             <th>Status</th>
             <th>Date & Time</th>
             <th>Customer</th>
-            <th>Employee</th>
+            {user.role === "Admin" && <th>Employee</th>}
             <th>Service</th>
             <th>Price</th>
           </tr>
@@ -168,7 +283,7 @@ function Appointments() {
                 {appt.date} {appt.time}
               </td>
               <td>{appt.customer_name}</td>
-              <td>{appt.employee_name}</td>
+              {user.role === "Admin" && <td>{appt.employee_name}</td>}
               <td>{appt.service_name}</td>
               <td>{appt.price} ₪</td>
             </tr>
@@ -190,25 +305,13 @@ function Appointments() {
         {!emailExists && (
           <p style={{ color: "red" }}>
             You should{" "}
-            <button
-              type="button"
-              onClick={() => setShowSignUpModal(true)}
-              className="link-btn"
-              style={{
-                background: "none",
-                border: "none",
-                color: "blue",
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
+            <button type="button" onClick={() => setShowSignUpModal(true)}>
               sign up
             </button>{" "}
             first.
           </p>
         )}
 
-        {/* Select Category */}
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
@@ -221,7 +324,6 @@ function Appointments() {
           ))}
         </select>
 
-        {/* Select Service */}
         <select
           name="serviceId"
           value={form.serviceId}
@@ -229,23 +331,9 @@ function Appointments() {
           disabled={!selectedCategory}
         >
           <option value="">Select Service</option>
-          {services.map((service) => (
-            <option key={service.id} value={service.id}>
-              {service.name} – ₪{service.price}
-            </option>
-          ))}
-        </select>
-
-        {/* Select Employee */}
-        <select
-          name="employeeId"
-          value={form.employeeId}
-          onChange={handleFormChange}
-        >
-          <option value="">Select Employee</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.name}
+          {services.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} – ₪{s.price}
             </option>
           ))}
         </select>
@@ -255,19 +343,36 @@ function Appointments() {
           name="date"
           value={form.date}
           onChange={handleFormChange}
+          min={new Date().toISOString().split("T")[0]}
         />
-        <input
-          type="time"
-          name="time"
-          value={form.time}
+
+        <select
+          name="employeeId"
+          value={form.employeeId}
           onChange={handleFormChange}
-        />
+        >
+          <option value="">Choose Employee</option>
+          {employees.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+
+        <select name="time" value={form.time} onChange={handleFormChange}>
+          <option value="">Choose Time</option>
+          {filteredTimes.map((time, i) => (
+            <option key={i} value={time}>
+              {time}
+            </option>
+          ))}
+        </select>
+
         <button onClick={handleCreateAppointment} disabled={!emailExists}>
           Book
         </button>
       </div>
 
-      {/* Sign Up Modal */}
       {showSignUpModal && (
         <SignUpModal
           onClose={() => setShowSignUpModal(false)}

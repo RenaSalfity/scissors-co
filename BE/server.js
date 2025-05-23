@@ -773,6 +773,7 @@ app.get("/api/appointments", (req, res) => {
 
   const params = [];
 
+  // 🔹 View mode filters
   if (view === "day") {
     sql += " AND a.date = CURDATE()";
   } else if (view === "week") {
@@ -781,17 +782,19 @@ app.get("/api/appointments", (req, res) => {
     sql += " AND YEAR(a.date) = YEAR(CURDATE())";
   }
 
+  // 🔹 Custom date range filter
   if (start && end) {
     sql += " AND a.date BETWEEN ? AND ?";
     params.push(start, end);
   }
 
-  // ✅ Only filter by employee if it's provided
+  // 🔹 Filter by employee (for employees or admin filter)
   if (employeeId) {
     sql += " AND a.employee_id = ?";
     params.push(employeeId);
   }
 
+  // 🔹 Order by latest first
   sql += " ORDER BY a.date DESC, a.time DESC";
 
   db.query(sql, params, (err, results) => {
@@ -803,6 +806,7 @@ app.get("/api/appointments", (req, res) => {
     res.json(results);
   });
 });
+
 
 // ✅ Check if employee has any appointments before demotion
 app.get("/api/employees/:id/appointments", (req, res) => {
