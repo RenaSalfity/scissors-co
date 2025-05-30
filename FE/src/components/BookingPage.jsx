@@ -9,6 +9,7 @@ function BookingPage({ user }) {
 
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [allowedEmployeeIds, setAllowedEmployeeIds] = useState([]);
   const [filteredTimes, setFilteredTimes] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -23,6 +24,7 @@ function BookingPage({ user }) {
     fetchServices();
 
     if (preselectedService) {
+      fetchAllowedEmployees(preselectedService.id);
       setForm((prev) => {
         const updated = { ...prev, serviceId: preselectedService.id };
         if (updated.employeeId && updated.date) {
@@ -44,13 +46,25 @@ function BookingPage({ user }) {
       .catch((err) => console.error("Error loading services:", err));
   };
 
+  const fetchAllowedEmployees = (serviceId) => {
+    axios
+      .get(`http://localhost:5001/api/service-employees/${serviceId}`)
+      .then((res) => setAllowedEmployeeIds(res.data.employeeIds || []))
+      .catch((err) => {
+        console.error("Error fetching assigned employees:", err);
+        setAllowedEmployeeIds([]);
+      });
+  };
+
   const fetchAvailableEmployees = (date) => {
     axios
       .get("http://localhost:5001/api/employees/available", {
         params: { date },
       })
       .then((res) => {
-        const filtered = res.data.filter((emp) => emp.id !== user.id);
+        const filtered = res.data
+          .filter((emp) => emp.id !== user.id)
+          .filter((emp) => allowedEmployeeIds.includes(emp.id));
         setEmployees(filtered);
       })
       .catch((err) => {
@@ -61,12 +75,6 @@ function BookingPage({ user }) {
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
     const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
-
-    console.log("📅 Fetching slots for:", {
-      serviceId,
-      employeeId,
-      date: normalizedDate,
-    });
 
     axios
       .get("http://localhost:5001/api/available-times", {
@@ -89,6 +97,14 @@ function BookingPage({ user }) {
 
     if (!updatedForm.serviceId && preselectedService) {
       updatedForm.serviceId = preselectedService.id;
+    }
+
+    if (name === "serviceId") {
+      fetchAllowedEmployees(value);
+      setForm({ ...updatedForm, employeeId: "", time: "" }); // reset employee/time
+      setEmployees([]);
+      setFilteredTimes([]);
+      return;
     }
 
     setForm(updatedForm);
@@ -168,11 +184,17 @@ function BookingPage({ user }) {
           required
         >
           <option value="">Choose Employee</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.name}
+          {employees.length > 0 ? (
+            employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name}
+              </option>
+            ))
+          ) : (
+            <option disabled value="">
+              No employees available
             </option>
-          ))}
+          )}
         </select>
 
         <select
