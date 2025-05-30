@@ -1242,3 +1242,23 @@ app.delete("/api/special-hours/cancel-appointments", (req, res) => {
     });
   });
 });
+
+// GET /api/users?role=Admin
+app.get("/api/users", (req, res) => {
+  const { role } = req.query;
+  let query = "SELECT id, name, phone FROM users";
+  const params = [];
+
+  if (role) {
+    query += " WHERE role = ?";
+    params.push(role);
+  }
+
+  db.query(query, params, (err, results) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});

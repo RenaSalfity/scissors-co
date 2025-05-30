@@ -1,23 +1,34 @@
-import React from "react";
-import "../assets/styles/Contact.css"; // Add a CSS file for Contact styles
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import "../assets/styles/Contact.css";
 
 function Contact() {
+  const [admins, setAdmins] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("http://localhost:5001/api/users?role=Admin")
+      .then((res) => setAdmins(res.data))
+      .catch((err) => {
+        console.error("Failed to load admin contacts:", err);
+        setAdmins([]);
+      });
+  }, []);
+
   return (
     <div className="contact-container">
       <h1 className="contact-title">Contact Us</h1>
-      <p className="contact-text">
-        Qasem Khalilieh: <span className="contact-name">📞052-6114905</span>
-      </p>
-      <p className="contact-text">
-        Rena Salfity: <span className="contact-name">📞058-5110220</span>
-      </p>
-      <div className="contact-image">
-        {/* <img
-          src="https://via.placeholder.com/600x400"
-          alt="Contact"
-          className="image"
-        /> */}
-      </div>
+
+      {admins.length === 0 && <p>No admin contacts found.</p>}
+
+      {admins.map((admin) => (
+        <div key={admin.id} className="contact-text">
+          <span>{admin.name}:</span>
+          <span className="contact-name">📞{admin.phone}</span>
+        </div>
+      ))}
+
+      <div className="contact-image">{/* Optional image here */}</div>
     </div>
   );
 }
