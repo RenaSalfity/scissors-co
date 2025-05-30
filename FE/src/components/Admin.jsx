@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom"; // ✅ Import useNavigate
+import { Link, useNavigate } from "react-router-dom";
 import "../assets/styles/Admin.css";
 
 function Admin() {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState({ name: "", image: null });
   const [showForm, setShowForm] = useState(false);
-  const navigate = useNavigate(); // ✅ Allows redirection
+  const [index, setIndex] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchCategories(); 
+    fetchCategories();
   }, []);
 
   const fetchCategories = () => {
@@ -30,8 +31,7 @@ function Admin() {
   };
 
   const handleAddCategory = (e) => {
-    e.preventDefault(); // ✅ Prevents page refresh
-
+    e.preventDefault();
     const formData = new FormData();
     formData.append("name", newCategory.name);
     formData.append("image", newCategory.image);
@@ -41,13 +41,29 @@ function Admin() {
       .then(() => {
         fetchCategories();
         setNewCategory({ name: "", image: null });
-        setShowForm(false); // ✅ Hides form after adding
+        setShowForm(false);
       })
       .catch((err) => console.error("Error adding category:", err));
   };
 
   const handleViewServices = (category) => {
-    navigate(`/post/${category.id}`, { state: { post: category } }); // ✅ Redirect to SinglePost
+    navigate(`/post/${category.id}`, { state: { post: category } });
+  };
+
+  const visibleCount = 3;
+  const next = () => {
+    setIndex((prev) => (prev + 1) % categories.length);
+  };
+  const prev = () => {
+    setIndex((prev) =>
+      prev === 0 ? categories.length - 1 : (prev - 1) % categories.length
+    );
+  };
+
+  const getVisibleCategories = () => {
+    if (categories.length <= visibleCount) return categories;
+    const looped = [...categories, ...categories];
+    return looped.slice(index, index + visibleCount);
   };
 
   return (
@@ -60,7 +76,6 @@ function Admin() {
           {showForm ? "Close" : "Add Category"}
         </button>
 
-        {/* ✅ Fixed the form submission issue */}
         {showForm && (
           <form className="add-category-form" onSubmit={handleAddCategory}>
             <input
@@ -83,31 +98,41 @@ function Admin() {
           </form>
         )}
 
-        <h2>Manage Categories</h2>
-        <div className="category-list">
-          {categories.map((category) => (
-            <div key={category.id} className="category-card">
-              {category.image ? (
-                <img
-                  src={`http://localhost:5001/uploads/${category.image}`}
-                  alt={category.name}
-                />
-              ) : (
-                <div className="placeholder-image">No Image</div>
-              )}
-              <h3>{category.name}</h3>
-              <div className="actions">
-                <Link to={`/edit-category/${category.id}`}>Edit</Link>
-                <button onClick={() => handleDeleteCategory(category.id)}>
-                  Delete
-                </button>
-                <button onClick={() => handleViewServices(category)}>
-                  View
-                </button>
-                {/* ✅ Navigate to SinglePost */}
+        <h2 className="admin-title">Manage Categories</h2>
+
+        <div className="carousel-wrapper">
+          <button className="carousel-arrow" onClick={prev}>
+            ◀
+          </button>
+
+          <div className="carousel">
+            {getVisibleCategories().map((category) => (
+              <div key={category.id} className="category-card">
+                {category.image ? (
+                  <img
+                    src={`http://localhost:5001/uploads/${category.image}`}
+                    alt={category.name}
+                  />
+                ) : (
+                  <div className="placeholder-image">No Image</div>
+                )}
+                <h3>{category.name}</h3>
+                <div className="actions">
+                  <Link to={`/edit-category/${category.id}`}>Edit</Link>
+                  <button onClick={() => handleDeleteCategory(category.id)}>
+                    Delete
+                  </button>
+                  <button onClick={() => handleViewServices(category)}>
+                    View
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <button className="carousel-arrow" onClick={next}>
+            ▶
+          </button>
         </div>
       </div>
     </div>
