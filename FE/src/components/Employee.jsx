@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import CategoryCarousel from "./CategoryCarousel"; 
 import "../assets/styles/MainPage.css";
-import "../assets/styles/Articles.css";
 
 function Employee() {
   const [categories, setCategories] = useState([]);
@@ -17,30 +16,12 @@ function Employee() {
   return (
     <div className="employee-container">
       <div className="main">
-        <section className="articles">
-          <div className="container">
-            <h1 className="main-page-title">Choose a Service</h1>
-            <div className="articles-container">
-              {categories.map((category) => (
-                <div key={category.id} className="article-card">
-                  <img
-                    src={`http://localhost:5001/uploads/${category.image}`}
-                    alt={category.name}
-                    className="article-image"
-                  />
-                  <h2 className="article-title">{category.name}</h2>
-                  <Link
-                    to={`/post/${category.id}`}
-                    state={{ post: category }}
-                    className="view-button"
-                  >
-                    Make an Appointment
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <h1 className="main-page-title">Choose a Service</h1>
+        <CategoryCarousel
+          categories={categories}
+          role="Employee"
+          buttonLabel="Make an Appointment"
+        />
       </div>
     </div>
   );

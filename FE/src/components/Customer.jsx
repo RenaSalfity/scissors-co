@@ -2,9 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Header from "./Header";
 import Footer from "./Footer";
-import { Link } from "react-router-dom";
+import CategoryCarousel from "./CategoryCarousel";
 import "../assets/styles/MainPage.css";
-import "../assets/styles/Articles.css";
 
 function Customer() {
   const [categories, setCategories] = useState([]);
@@ -18,34 +17,14 @@ function Customer() {
 
   return (
     <div className="customer-container">
-      {/* <Header /> */}
       <div className="main">
-        <section className="articles">
-          <div className="container">
-            <h1 className="main-page-title">Choose a Service</h1>
-            <div className="articles-container">
-              {categories.map((category) => (
-                <div key={category.id} className="article-card">
-                  <img
-                    src={`http://localhost:5001/uploads/${category.image}`}
-                    alt={category.name}
-                    className="article-image"
-                  />
-                  <h2 className="article-title">{category.name}</h2>
-                  <Link
-                    to={`/post/${category.id}`}
-                    state={{ post: category }}
-                    className="view-button"
-                  >
-                    Choose Service
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <h1 className="main-page-title">Choose a Service</h1>
+        <CategoryCarousel
+          categories={categories}
+          role="Customer"
+          buttonLabel="Choose Service"
+        />
       </div>
-      {/* <Footer /> */}
     </div>
   );
 }
