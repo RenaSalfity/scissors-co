@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../assets/styles/SinglePost.css";
@@ -6,9 +6,15 @@ import "../assets/styles/SinglePost.css";
 function SinglePost({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dropdownRef = useRef(null);
 
   const [category, setCategory] = useState(null);
   const [services, setServices] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const [showForm, setShowForm] = useState(false);
   const [newService, setNewService] = useState({
     name: "",
@@ -16,6 +22,9 @@ function SinglePost({ user }) {
     time: 15,
   });
   const [editService, setEditService] = useState(null);
+  const [editSelectedEmployees, setEditSelectedEmployees] = useState([]);
+  const [editDropdownOpen, setEditDropdownOpen] = useState(false);
+  const [editSearch, setEditSearch] = useState("");
 
   const durationOptions = Array.from({ length: 8 }, (_, i) => (i + 1) * 15);
 
@@ -26,7 +35,15 @@ function SinglePost({ user }) {
       .catch(() => setCategory(null));
 
     fetchServices();
+    fetchEmployees();
   }, [id]);
+
+  const fetchEmployees = () => {
+    axios
+      .get("http://localhost:5001/api/employees")
+      .then((res) => setEmployees(res.data))
+      .catch((err) => console.error("Failed to load employees:", err));
+  };
 
   const fetchServices = () => {
     axios
@@ -35,66 +52,77 @@ function SinglePost({ user }) {
       .catch(() => setServices([]));
   };
 
+  const fetchAssignedEmployees = async (serviceId) => {
+    try {
+      const res = await axios.get(
+        `http://localhost:5001/api/service-employees/${serviceId}`
+      );
+      return res.data.employeeIds;
+    } catch (err) {
+      console.error("Error fetching assigned employees", err);
+      return [];
+    }
+  };
+
+  const toggleEmployeeSelection = (id, selectedList, setSelectedList) => {
+    setSelectedList((prev) =>
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
+    );
+  };
+
   const handleAddService = (e) => {
     e.preventDefault();
-
-    if (Number(newService.price) <= 0) {
-      alert("Price must be greater than 0");
-      return;
-    }
+    if (Number(newService.price) <= 0)
+      return alert("Price must be greater than 0");
+    if (selectedEmployees.length === 0)
+      return alert("Please select at least one employee");
 
     axios
       .post(`http://localhost:5001/services`, {
         ...newService,
         category_id: id,
+        employee_ids: selectedEmployees,
       })
       .then(() => {
         setShowForm(false);
         setNewService({ name: "", price: "", time: 15 });
+        setSelectedEmployees([]);
         fetchServices();
+        alert("✅ Service added successfully.");
       })
       .catch((err) => console.error("Error adding service:", err));
   };
 
   const handleEditService = (e) => {
     e.preventDefault();
-
-    if (Number(editService.price) <= 0) {
-      alert("Price must be greater than 0");
-      return;
-    }
+    if (Number(editService.price) <= 0)
+      return alert("Price must be greater than 0");
+    if (editSelectedEmployees.length === 0)
+      return alert("Please select at least one employee");
 
     axios
-      .put(
-        `http://localhost:5001/services/${editService.id}`,
-        {
-          name: editService.name,
-          price: editService.price,
-          time: editService.time,
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-        }
-      )
+      .put(`http://localhost:5001/services/${editService.id}`, {
+        name: editService.name,
+        price: editService.price,
+        time: editService.time,
+        employee_ids: editSelectedEmployees,
+      })
       .then(() => {
         setEditService(null);
+        setEditSelectedEmployees([]);
         fetchServices();
+        alert("✅ Service updated successfully.");
       })
       .catch((err) => console.error("Error updating service:", err));
   };
 
   const handleDeleteService = (serviceId) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this service?"
-    );
-    if (!confirmDelete) return;
+    if (!window.confirm("Are you sure you want to delete this service?"))
+      return;
 
     axios
       .delete(`http://localhost:5001/services/${serviceId}`)
-      .then(() => {
-        console.log(`Service ${serviceId} deleted successfully`);
-        fetchServices();
-      })
+      .then(() => fetchServices())
       .catch((err) =>
         console.error("Error deleting service:", err.response?.data || err)
       );
@@ -104,12 +132,24 @@ function SinglePost({ user }) {
     navigate("/booking", { state: { service } });
   };
 
+  const handleEditClick = async (service) => {
+    setShowForm(false); // close add form if open
+    const assigned = await fetchAssignedEmployees(service.id);
+    setEditSelectedEmployees(assigned);
+    setEditService(service);
+  };
+
+  const formatDuration = (min) => {
+    if (min < 60) return `${min} minutes`;
+    if (min === 60) return "1 hour";
+    return `${Math.floor(min / 60)} hour${min % 60 ? ` ${min % 60}` : ""}`;
+  };
+
   if (!category) return <h1>Service not found</h1>;
 
   return (
     <div className="single-post">
       <h1 className="post-title">{category.name}</h1>
-
       <button onClick={() => navigate("/")} className="back-button">
         ← Back to Main Page
       </button>
@@ -131,7 +171,7 @@ function SinglePost({ user }) {
               <div>
                 <h3>{service.name}</h3>
                 <p>Price: ₪{service.price}</p>
-                <p>Time: {service.time} min</p>
+                <p>Time: {formatDuration(service.time)}</p>
               </div>
               <button
                 className="appointment-btn"
@@ -143,7 +183,7 @@ function SinglePost({ user }) {
                 <>
                   <button
                     className="edit-btn"
-                    onClick={() => setEditService(service)}
+                    onClick={() => handleEditClick(service)}
                   >
                     Edit
                   </button>
@@ -164,12 +204,17 @@ function SinglePost({ user }) {
 
       {user?.role === "Admin" && (
         <>
-          <button
-            className="add-service-btn"
-            onClick={() => setShowForm(!showForm)}
-          >
-            {showForm ? "Close Form" : "Add Service"}
-          </button>
+          {!editService && (
+            <button
+              className="add-service-btn"
+              onClick={() => {
+                setEditService(null); // close edit form
+                setShowForm(!showForm); // toggle add form
+              }}
+            >
+              {showForm ? "Close Form" : "Add Service"}
+            </button>
+          )}
 
           {showForm && (
             <form className="add-service-form" onSubmit={handleAddService}>
@@ -204,16 +249,57 @@ function SinglePost({ user }) {
               >
                 {durationOptions.map((min) => (
                   <option key={min} value={min}>
-                    {min < 60
-                      ? `${min} minutes`
-                      : min === 60
-                      ? `1 hour`
-                      : `${Math.floor(min / 60)} hour${
-                          min % 60 ? ` ${min % 60}` : ""
-                        }`}
+                    {formatDuration(min)}
                   </option>
                 ))}
               </select>
+
+              <label>Select Employees</label>
+              <div className="custom-multi-select">
+                <div
+                  className="multi-select-display"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                >
+                  {selectedEmployees.length > 0
+                    ? `${selectedEmployees.length} selected`
+                    : "Select employees..."}
+                </div>
+                {dropdownOpen && (
+                  <div className="multi-select-dropdown">
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      className="multi-select-search"
+                      onChange={(e) =>
+                        setEmployeeSearch(e.target.value.toLowerCase())
+                      }
+                    />
+                    <div className="multi-select-options">
+                      {employees
+                        .filter((e) =>
+                          e.name.toLowerCase().includes(employeeSearch)
+                        )
+                        .map((e) => (
+                          <label key={e.id}>
+                            <input
+                              type="checkbox"
+                              checked={selectedEmployees.includes(e.id)}
+                              onChange={() =>
+                                toggleEmployeeSelection(
+                                  e.id,
+                                  selectedEmployees,
+                                  setSelectedEmployees
+                                )
+                              }
+                            />
+                            {e.name}
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button type="submit">Save Service</button>
             </form>
           )}
@@ -223,7 +309,6 @@ function SinglePost({ user }) {
               <h3>Edit Service</h3>
               <input
                 type="text"
-                placeholder="Service Name"
                 value={editService.name}
                 onChange={(e) =>
                   setEditService({ ...editService, name: e.target.value })
@@ -232,7 +317,6 @@ function SinglePost({ user }) {
               />
               <input
                 type="number"
-                placeholder="Price (₪)"
                 min="1"
                 value={editService.price}
                 onChange={(e) =>
@@ -252,16 +336,57 @@ function SinglePost({ user }) {
               >
                 {durationOptions.map((min) => (
                   <option key={min} value={min}>
-                    {min < 60
-                      ? `${min} minutes`
-                      : min === 60
-                      ? `1 hour`
-                      : `${Math.floor(min / 60)} hour${
-                          min % 60 ? ` ${min % 60}` : ""
-                        }`}
+                    {formatDuration(min)}
                   </option>
                 ))}
               </select>
+
+              <label>Edit Assigned Employees</label>
+              <div className="custom-multi-select">
+                <div
+                  className="multi-select-display"
+                  onClick={() => setEditDropdownOpen(!editDropdownOpen)}
+                >
+                  {editSelectedEmployees.length > 0
+                    ? `${editSelectedEmployees.length} selected`
+                    : "Select employees..."}
+                </div>
+                {editDropdownOpen && (
+                  <div className="multi-select-dropdown">
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      className="multi-select-search"
+                      onChange={(e) =>
+                        setEditSearch(e.target.value.toLowerCase())
+                      }
+                    />
+                    <div className="multi-select-options">
+                      {employees
+                        .filter((e) =>
+                          e.name.toLowerCase().includes(editSearch)
+                        )
+                        .map((e) => (
+                          <label key={e.id}>
+                            <input
+                              type="checkbox"
+                              checked={editSelectedEmployees.includes(e.id)}
+                              onChange={() =>
+                                toggleEmployeeSelection(
+                                  e.id,
+                                  editSelectedEmployees,
+                                  setEditSelectedEmployees
+                                )
+                              }
+                            />
+                            {e.name}
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button type="submit" className="update-service-btn">
                 Update Service
               </button>
