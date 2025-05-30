@@ -50,7 +50,6 @@ function BookingPage({ user }) {
         params: { date },
       })
       .then((res) => {
-        // ❌ Exclude the logged-in user (employee) from the list
         const filtered = res.data.filter((emp) => emp.id !== user.id);
         setEmployees(filtered);
       })
@@ -59,7 +58,6 @@ function BookingPage({ user }) {
         setEmployees([]);
       });
   };
-  
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
     const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
@@ -125,10 +123,7 @@ function BookingPage({ user }) {
   };
 
   const today = new Date();
-  const maxDate = new Date();
-  maxDate.setDate(today.getDate() + 7);
   const minDateStr = today.toISOString().split("T")[0];
-  const maxDateStr = maxDate.toISOString().split("T")[0];
 
   return (
     <div className="booking-page">
@@ -163,7 +158,6 @@ function BookingPage({ user }) {
           value={form.date}
           onChange={handleFormChange}
           min={minDateStr}
-          max={maxDateStr}
           required
         />
 
