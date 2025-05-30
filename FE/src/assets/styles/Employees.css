@@ -94,7 +94,7 @@
   background-color: #0056b3;
 }
 
-input[type="checkbox"] {
+.user-table input[type="checkbox"] {
   transform: scale(1.3);
   cursor: pointer;
 }
