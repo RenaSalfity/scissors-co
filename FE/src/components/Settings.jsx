@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/Settings.css";
 
+const API_BASE = "http://localhost:5001";
+
 function Settings({ user }) {
   const [form, setForm] = useState({
     name: "",
@@ -16,6 +18,9 @@ function Settings({ user }) {
     end_date: "",
     reason: "",
     proof: null,
+    start_time: "",
+    end_time: "",
+    note: "",
   });
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -32,17 +37,18 @@ function Settings({ user }) {
 
   const generateTimeOptions = () => {
     const options = [];
-    for (let h = 8; h <= 17; h++) {
+    for (let h = 0; h <= 23; h++) {
       options.push(`${h.toString().padStart(2, "0")}:00`);
-      if (h < 17) options.push(`${h.toString().padStart(2, "0")}:30`);
+      options.push(`${h.toString().padStart(2, "0")}:30`);
     }
     return options;
   };
+
   const timeOptions = generateTimeOptions();
 
   useEffect(() => {
     if (user?.email) {
-      axios.get(`http://localhost:5001/users/${user.email}`).then((res) => {
+      axios.get(`${API_BASE}/users/${user.email}`).then((res) => {
         setForm((prev) => ({
           ...prev,
           name: res.data.name,
@@ -53,7 +59,7 @@ function Settings({ user }) {
 
     if (user?.role === "Admin") {
       axios
-        .get("http://localhost:5001/api/business-hours")
+        .get(`${API_BASE}/api/business-hours`)
         .then((res) => {
           const cleanTimes = res.data.map((entry) => ({
             ...entry,
@@ -90,10 +96,7 @@ function Settings({ user }) {
         payload.newPassword = newPassword;
       }
 
-      await axios.put(
-        `http://localhost:5001/api/users/${user.id}/profile`,
-        payload
-      );
+      await axios.put(`${API_BASE}/api/users/${user.id}/profile`, payload);
       setMessage("Profile updated successfully.");
       setForm((prev) => ({ ...prev, oldPassword: "", newPassword: "" }));
     } catch (err) {
@@ -112,14 +115,51 @@ function Settings({ user }) {
 
   const handleSaveHours = async () => {
     try {
-      await axios.put(
-        "http://localhost:5001/api/business-hours",
-        businessHours
-      );
+      await axios.put(`${API_BASE}/api/business-hours`, businessHours);
       alert("Business hours updated.");
     } catch (err) {
       console.error("Failed to save business hours:", err);
       alert("Error saving hours.");
+    }
+  };
+
+  const submitSpecialHours = async () => {
+    const { start_date, start_time, end_time, reason, note } = holiday;
+    if (!start_date || !reason)
+      return alert("Please select a date and reason.");
+
+    if (
+      (start_time === "" && end_time !== "") ||
+      (end_time === "" && start_time !== "")
+    ) {
+      return alert(
+        "Both start and end times must be selected, or leave both as '-- Closed --'"
+      );
+    }
+
+    try {
+      await axios.put(`${API_BASE}/api/special-hours`, {
+        date: start_date,
+        start_time: start_time || "",
+        end_time: end_time || "",
+        note: note || "",
+        reason,
+      });
+
+      alert("Special hours saved.");
+
+      setHoliday({
+        start_date: "",
+        end_date: "",
+        reason: "",
+        proof: null,
+        start_time: "",
+        end_time: "",
+        note: "",
+      });
+    } catch (err) {
+      console.error("❌ Failed to save special hours:", err);
+      alert("Error saving special hours.");
     }
   };
 
@@ -163,74 +203,156 @@ function Settings({ user }) {
         </div>
 
         {user.role === "Admin" && (
-          <div className="settings-card">
-            <h2>Business Hours</h2>
-            <table className="business-hours-table">
-              <thead>
-                <tr>
-                  <th>Day</th>
-                  <th>Start Time</th>
-                  <th>End Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {days.map((day) => {
-                  const entry = businessHours.find(
-                    (e) => e.day_of_week === day
-                  ) || {
-                    day_of_week: day,
-                    start_time: "08:00",
-                    end_time: "17:00",
-                  };
+          <>
+            <div className="settings-card">
+              <h2>Business Hours</h2>
+              <table className="business-hours-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {days.map((day) => {
+                    const entry = businessHours.find(
+                      (e) => e.day_of_week === day
+                    ) || {
+                      day_of_week: day,
+                      start_time: "08:00",
+                      end_time: "17:00",
+                    };
+                    return (
+                      <tr key={day}>
+                        <td>{day}</td>
+                        <td>
+                          <select
+                            value={entry.start_time}
+                            onChange={(e) =>
+                              handleBusinessHourChange(
+                                day,
+                                "start_time",
+                                e.target.value
+                              )
+                            }
+                          >
+                            {timeOptions.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            value={entry.end_time}
+                            onChange={(e) =>
+                              handleBusinessHourChange(
+                                day,
+                                "end_time",
+                                e.target.value
+                              )
+                            }
+                          >
+                            {timeOptions.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <button onClick={handleSaveHours} className="save-btn">
+                Save Business Hours
+              </button>
+            </div>
 
-                  return (
-                    <tr key={day}>
-                      <td>{day}</td>
-                      <td>
-                        <select
-                          value={entry.start_time}
-                          onChange={(e) =>
-                            handleBusinessHourChange(
-                              day,
-                              "start_time",
-                              e.target.value
-                            )
-                          }
-                        >
-                          {timeOptions.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          value={entry.end_time}
-                          onChange={(e) =>
-                            handleBusinessHourChange(
-                              day,
-                              "end_time",
-                              e.target.value
-                            )
-                          }
-                        >
-                          {timeOptions.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <button onClick={handleSaveHours} className="save-btn">
-              Save Business Hours
-            </button>
-          </div>
+            <div className="settings-card">
+              <h2>Special Business Hours</h2>
+              <div className="settings-form">
+                <label>Pick a Date</label>
+                <input
+                  type="date"
+                  value={holiday.start_date}
+                  onChange={(e) =>
+                    setHoliday((prev) => ({
+                      ...prev,
+                      start_date: e.target.value,
+                    }))
+                  }
+                  min={todayStr}
+                />
+
+                <label>Reason</label>
+                <select
+                  value={holiday.reason}
+                  onChange={(e) =>
+                    setHoliday((prev) => ({ ...prev, reason: e.target.value }))
+                  }
+                >
+                  <option value="">-- Select Reason --</option>
+                  <option value="Holiday">Holiday</option>
+                  <option value="Other">Other</option>
+                </select>
+
+                <label>Start Time</label>
+                <select
+                  value={holiday.start_time || ""}
+                  onChange={(e) =>
+                    setHoliday((prev) => ({
+                      ...prev,
+                      start_time: e.target.value,
+                      end_time: e.target.value === "" ? "" : prev.end_time,
+                    }))
+                  }
+                >
+                  <option value="">-- Closed --</option>
+                  {timeOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+
+                <label>End Time</label>
+                <select
+                  value={holiday.end_time || ""}
+                  onChange={(e) =>
+                    setHoliday((prev) => ({
+                      ...prev,
+                      end_time: e.target.value,
+                      start_time: e.target.value === "" ? "" : prev.start_time,
+                    }))
+                  }
+                >
+                  <option value="">-- Closed --</option>
+                  {timeOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+
+                <label>Note</label>
+                <input
+                  type="text"
+                  value={holiday.note || ""}
+                  onChange={(e) =>
+                    setHoliday((prev) => ({ ...prev, note: e.target.value }))
+                  }
+                />
+
+                <button onClick={submitSpecialHours} className="save-btn">
+                  Save Special Hours
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
