@@ -277,7 +277,6 @@ app.get("/api/available-times", (req, res) => {
     return res.status(400).json({ error: "Missing required parameters" });
   }
 
-  // Get the weekday name
   const dayOfWeek = new Date(date).toLocaleDateString("en-US", {
     weekday: "long",
   });
@@ -296,44 +295,50 @@ app.get("/api/available-times", (req, res) => {
     }
 
     const serviceDuration = Number(result[0].time) || fallbackDuration;
-    console.log(
-      "⏱️ Service Duration (parsed):",
-      serviceDuration,
-      typeof serviceDuration
-    );
+    console.log("⏱️ Service Duration:", serviceDuration);
 
-    // Step 2: Get working hours
-    const hoursQuery = `
-      SELECT start_time, end_time FROM working_hours
-      WHERE day_of_week = ?
-      LIMIT 1
-    `;
-
-    db.query(hoursQuery, [dayOfWeek], (err2, hoursResult) => {
-      if (err2 || hoursResult.length === 0) {
-        console.error("❌ Error fetching working hours:", err2);
-        return res.status(400).json({ error: "No working hours found" });
+    // Step 2: Check for special hours first
+    const specialQuery =
+      "SELECT start_time, end_time FROM special_hours WHERE date = ?";
+    db.query(specialQuery, [date], (err2, special) => {
+      if (err2) {
+        console.error("❌ Error checking special hours:", err2);
+        return res.status(500).json({ error: "Error checking special hours" });
       }
 
-      const workingHours = {
-        start_time: hoursResult[0].start_time,
-        end_time: hoursResult[0].end_time,
-      };
+      if (special.length > 0) {
+        // Check if salon is closed that day
+        if (!special[0].start_time || !special[0].end_time) {
+          console.log("📛 Closed on this date due to special hours.");
+          return res.json([]);
+        }
 
-      console.log("🕒 Working Hours:", workingHours);
+        proceedWithHours(special[0].start_time, special[0].end_time);
+      } else {
+        // Fallback to default working hours
+        const hoursQuery = `
+          SELECT start_time, end_time FROM working_hours
+          WHERE day_of_week = ?
+          LIMIT 1
+        `;
+        db.query(hoursQuery, [dayOfWeek], (err3, hoursResult) => {
+          if (err3 || hoursResult.length === 0) {
+            console.error("❌ Error fetching working hours:", err3);
+            return res.status(400).json({ error: "No working hours found" });
+          }
 
-      const [startH, startM] = workingHours.start_time
-        .substring(0, 5)
-        .split(":")
-        .map(Number);
-      const [endH, endM] = workingHours.end_time
-        .substring(0, 5)
-        .split(":")
-        .map(Number);
+          proceedWithHours(hoursResult[0].start_time, hoursResult[0].end_time);
+        });
+      }
+    });
+
+    // Step 3: Continue with slot generation
+    function proceedWithHours(startTime, endTime) {
+      const [startH, startM] = startTime.substring(0, 5).split(":").map(Number);
+      const [endH, endM] = endTime.substring(0, 5).split(":").map(Number);
       const openMinutes = startH * 60 + startM;
       const closeMinutes = endH * 60 + endM;
 
-      // Step 3: Fetch appointments
       const apptQuery = `
         SELECT a.time AS appointmentTime, s.time AS serviceDuration
         FROM appointments a
@@ -341,34 +346,28 @@ app.get("/api/available-times", (req, res) => {
         WHERE a.employee_id = ? AND a.date = ?
       `;
 
-      db.query(apptQuery, [employeeId, date], (err3, appts) => {
-        if (err3) {
-          console.error("❌ Error fetching appointments:", err3);
-          return res.status(500).json({
-            error: "Failed to fetch appointments",
-            details: err3,
-          });
+      db.query(apptQuery, [employeeId, date], (err4, appts) => {
+        if (err4) {
+          console.error("❌ Error fetching appointments:", err4);
+          return res
+            .status(500)
+            .json({ error: "Failed to fetch appointments" });
         }
 
         const booked = appts.map(({ appointmentTime, serviceDuration }) => {
           const [h, m] = appointmentTime.split(":").map(Number);
           const start = h * 60 + m;
-          const end = start + Number(serviceDuration); // ✅ Ensure it's numeric
+          const end = start + Number(serviceDuration);
           return { start, end };
         });
 
-        console.log("📅 Booked:", booked);
-
-        // Step 4: Generate available slots
         const available = [];
-
         for (
           let t = openMinutes;
           t + serviceDuration <= closeMinutes;
           t += slotInterval
         ) {
           const end = t + serviceDuration;
-
           const overlaps = booked.some(
             (b) => Math.max(t, b.start) < Math.min(end, b.end)
           );
@@ -383,10 +382,9 @@ app.get("/api/available-times", (req, res) => {
         console.log("✅ Available Slots:", available);
         res.json(available);
       });
-    });
+    }
   });
 });
-
 
 app.get("/api/holidays/:employeeId/disabled-dates", (req, res) => {
   const { employeeId } = req.params;
@@ -421,83 +419,6 @@ app.get("/api/holidays/:employeeId/disabled-dates", (req, res) => {
   });
 });
 
-
-
-// ✅ Smart available-times endpoint with service duration + debug logs
-// app.get("/api/available-times", (req, res) => {
-//   const { employeeId, date, serviceId } = req.query;
-
-//   if (!employeeId || !date || !serviceId) {
-//     return res.status(400).json({ error: "Missing required query parameters" });
-//   }
-
-//   const slotInterval = 15;
-//   const openingTime = "10:00";
-//   const closingTime = "16:00";
-
-//   const fallbackDuration = 30; // fallback if duration not found
-
-//   // Step 1: Get service duration
-//   const durationQuery = "SELECT time FROM services WHERE id = ?";
-//   db.query(durationQuery, [serviceId], (err, durationResults) => {
-//     if (err || durationResults.length === 0) {
-//       return res
-//         .status(500)
-//         .json({ error: "Could not fetch service duration" });
-//     }
-
-//     const serviceDuration = durationResults[0].time || fallbackDuration;
-
-//     // Step 2: Get employee's existing appointments
-//     const appointmentQuery = `
-//       SELECT time, s.time AS serviceDuration
-//       FROM appointments a
-//       JOIN services s ON a.service_id = s.id
-//       WHERE a.employee_id = ? AND a.date = ?
-//     `;
-//     db.query(appointmentQuery, [employeeId, date], (err2, results) => {
-//       if (err2) {
-//         return res.status(500).json({ error: "Database error", details: err2 });
-//       }
-
-//       // Create time ranges in minutes
-//       const booked = results.map((appt) => {
-//         const [h, m] = appt.time.split(":").map(Number);
-//         const start = h * 60 + m;
-//         const end = start + appt.serviceDuration;
-//         return { start, end };
-//       });
-
-//       // Step 3: Generate slots
-//       const [openH, openM] = openingTime.split(":").map(Number);
-//       const [closeH, closeM] = closingTime.split(":").map(Number);
-//       const openMinutes = openH * 60 + openM;
-//       const closeMinutes = closeH * 60 + closeM;
-
-//       const available = [];
-
-//       for (
-//         let t = openMinutes;
-//         t + serviceDuration <= closeMinutes;
-//         t += slotInterval
-//       ) {
-//         const end = t + serviceDuration;
-
-//         const overlaps = booked.some(
-//           (b) => Math.max(t, b.start) < Math.min(end, b.end)
-//         );
-
-//         if (!overlaps) {
-//           const hour = String(Math.floor(t / 60)).padStart(2, "0");
-//           const minute = String(t % 60).padStart(2, "0");
-//           available.push(`${hour}:${minute}`);
-//         }
-//       }
-
-//       res.json(available);
-//     });
-//   });
-// });
 app.put("/api/business-hours", (req, res) => {
   const hours = req.body; // Array of 7 entries
 
@@ -525,7 +446,6 @@ app.put("/api/business-hours", (req, res) => {
     });
   });
 });
-
 
 app.get("/api/customers/details", (req, res) => {
   const sql = `
@@ -675,7 +595,6 @@ app.get("/api/appointments", (req, res) => {
     res.json(results);
   });
 });
-
 
 // ✅ Check if employee has any appointments before demotion
 app.get("/api/employees/:id/appointments", (req, res) => {
@@ -875,9 +794,6 @@ app.get("/api/business-hours", (req, res) => {
     res.json(results);
   });
 });
-
-
-
 
 //if the employee was sick
 app.post("/api/holidays", upload.single("proof"), (req, res) => {
@@ -1083,3 +999,164 @@ app.post("/api/appointments", (req, res) => {
   });
 });
 
+//add special dates in case of ocassions/special holidays
+app.get("/api/special-hours/:date", (req, res) => {
+  const { date } = req.params;
+  const sql = "SELECT * FROM special_hours WHERE date = ?";
+  db.query(sql, [date], (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch special hours:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(Array.isArray(results) ? results : []);
+  });
+});
+
+// ✅ Update special hours
+app.put("/api/special-hours", (req, res) => {
+  const { date, start_time, end_time, reason, note } = req.body;
+
+  if (!date || !reason) {
+    return res.status(400).json({ error: "Date and reason are required" });
+  }
+
+  const isClosed = !start_time && !end_time;
+  const sql = `
+    INSERT INTO special_hours (date, start_time, end_time, note)
+    VALUES (?, NULLIF(?,''), NULLIF(?,''), ?)
+    ON DUPLICATE KEY UPDATE
+      start_time = VALUES(start_time),
+      end_time = VALUES(end_time),
+      note = VALUES(note)
+  `;
+
+  db.query(sql, [date, start_time, end_time, note || ""], (err, result) => {
+    if (err) {
+      console.error("❌ Failed to save special hours:", err);
+      return res.status(500).json({ error: "Database error", details: err });
+    }
+
+    if (isClosed) {
+      const fetchSql = `
+        SELECT a.id, u.email, u.name, s.name AS service_name, a.time
+        FROM appointments a
+        JOIN users u ON a.customer_id = u.id
+        JOIN services s ON a.service_id = s.id
+        WHERE a.date = ? AND a.status NOT LIKE 'cancelled%'
+      `;
+
+      db.query(fetchSql, [date], (fetchErr, appointments) => {
+        if (fetchErr) {
+          console.error("❌ Failed to fetch appointments:", fetchErr);
+          return res.status(500).json({ error: "Database error" });
+        }
+
+        const updateSql = `
+          UPDATE appointments 
+          SET status = 'cancelled by business'
+          WHERE date = ? AND status NOT LIKE 'cancelled%'
+        `;
+
+        db.query(updateSql, [date], (updateErr) => {
+          if (updateErr) {
+            console.error("❌ Failed to update appointments:", updateErr);
+            return res.status(500).json({ error: "Update error" });
+          }
+
+          appointments.forEach(({ email, name, service_name, time }) => {
+            const emailBody =
+              reason === "Holiday"
+                ? `Dear ${name},\n\nYour appointment for "${service_name}" on ${date} at ${time} has been cancelled due to the following reason:\n\n"${note}".\n\nWe apologize for the inconvenience.\n\n— Scissors & Co.`
+                : `Dear ${name},\n\nYour appointment for "${service_name}" on ${date} at ${time} has been cancelled due to salon closure.\n\nWe apologize for the inconvenience.\n\n— Scissors & Co.`;
+
+            const mailOptions = {
+              from: "Scissors&Co <scissorsco2025@gmail.com>",
+              to: email,
+              subject: "Appointment Cancelled – Scissors & Co.",
+              text: emailBody,
+            };
+
+            transporter.sendMail(mailOptions, (mailErr) => {
+              if (mailErr) console.error("❌ Failed to send email:", mailErr);
+            });
+          });
+
+          return res.json({
+            message: `Special hours saved. ${appointments.length} appointments cancelled and customers notified.`,
+          });
+        });
+      });
+    } else {
+      return res.json({ message: "Special hours saved." });
+    }
+  });
+});
+
+app.get("/api/special-hours/conflict-check", (req, res) => {
+  const { date } = req.query;
+
+  if (!date) {
+    return res.status(400).json({ error: "Missing date" });
+  }
+
+  const sql = `
+    SELECT a.id, a.date, a.time, a.status,
+           u.name AS customer_name, u.email AS customer_email,
+           s.name AS service_name
+    FROM appointments a
+    LEFT JOIN users u ON a.customer_id = u.id
+    LEFT JOIN services s ON a.service_id = s.id
+    WHERE DATE(a.date) = ?
+      AND (a.status IS NULL OR a.status NOT LIKE 'cancelled%')
+  `;
+
+  db.query(sql, [date], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: "Database error", details: err });
+    }
+
+    res.json(results);
+  });
+});
+
+
+app.delete("/api/special-hours/cancel-appointments", (req, res) => {
+  const { date, reason } = req.body;
+
+  const fetchSql = `
+    SELECT a.id, u.email, u.name, s.name AS service_name, a.time
+    FROM appointments a
+    JOIN users u ON a.customer_id = u.id
+    JOIN services s ON a.service_id = s.id
+    WHERE a.date = ? AND a.status NOT LIKE 'cancelled%'
+  `;
+
+  db.query(fetchSql, [date], (err, results) => {
+    if (err) return res.status(500).json({ error: "Fetch error" });
+
+    const updateSql = `
+      UPDATE appointments 
+      SET status = 'cancelled by business' 
+      WHERE date = ? AND status NOT LIKE 'cancelled%'
+    `;
+
+    db.query(updateSql, [date], (err2) => {
+      if (err2) return res.status(500).json({ error: "Update error" });
+
+      results.forEach(({ email, name, service_name, time }) => {
+        const mailOptions = {
+          from: "Scissors&Co <scissorsco2025@gmail.com>",
+          to: email,
+          subject: "Appointment Cancellation Notice – Scissors & Co.",
+          text: `Dear ${name},\n\nWe regret to inform you that your appointment for "${service_name}" on ${date} at ${time} has been cancelled due to:\n\n"${reason}".\n\nWe apologize for the inconvenience and invite you to rebook at your convenience.\n\nWarm regards,\nScissors & Co.`,
+        };
+
+        transporter.sendMail(mailOptions, (err3) => {
+          if (err3) console.error("❌ Email send failed:", err3);
+        });
+      });
+
+      res.json({ message: "Appointments updated and customers notified." });
+    });
+  });
+});
