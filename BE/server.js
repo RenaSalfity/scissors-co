@@ -108,17 +108,35 @@ app.get("/categories/:id", (req, res) => {
 
 // ✅ Services routes
 app.post("/services", (req, res) => {
-  const { name, price, time, category_id } = req.body;
-  if (!name || !price || !time || !category_id) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
+  const { name, price, time, category_id, employee_ids = [] } = req.body;
+  const sql = `
+    INSERT INTO services (name, price, time, category_id)
+    VALUES (?, ?, ?, ?)
+  `;
 
-  const sql =
-    "INSERT INTO services (name, price, time, category_id) VALUES (?, ?, ?, ?)";
   db.query(sql, [name, price, time, category_id], (err, result) => {
-    if (err)
-      return res.status(500).json({ error: "Database error", details: err });
-    res.json({ message: "Service added successfully", id: result.insertId });
+    if (err) return res.status(500).json({ error: "Database error" });
+
+    const serviceId = result.insertId;
+
+    if (employee_ids.length === 0) {
+      return res.json({ message: "Service added", id: serviceId });
+    }
+
+    const linkSql = `
+      INSERT INTO employee_services (service_id, employee_id)
+      VALUES ?
+    `;
+    const values = employee_ids.map((eid) => [serviceId, eid]);
+
+    db.query(linkSql, [values], (err2) => {
+      if (err2) {
+        console.error("❌ Failed to link employees:", err2);
+        return res.status(500).json({ error: "Linking error" });
+      }
+
+      res.json({ message: "Service added with employees", id: serviceId });
+    });
   });
 });
 
@@ -128,6 +146,25 @@ app.get("/services/:categoryId", (req, res) => {
   db.query(sql, [categoryId], (err, results) => {
     if (err)
       return res.status(500).json({ error: "Database error", details: err });
+    res.json(results);
+  });
+});
+// Route to Fetch Assigned Employees for a Service
+app.get("/services/:id/employees", (req, res) => {
+  const serviceId = req.params.id;
+  const sql = `
+    SELECT u.id, u.name
+    FROM employee_services se
+    JOIN users u ON se.employee_id = u.id
+    WHERE se.service_id = ?
+  `;
+
+  db.query(sql, [serviceId], (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch employees for service:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
     res.json(results);
   });
 });
@@ -155,19 +192,65 @@ app.get("/api/employees", (req, res) => {
 // ✅ Update service
 app.put("/services/:id", (req, res) => {
   const { id } = req.params;
-  const { name, price, time } = req.body;
+  const { name, price, time, employee_ids } = req.body;
 
-  const sql = "UPDATE services SET name = ?, price = ?, time = ? WHERE id = ?";
-  const values = [name, price, time, id];
-  db.query(sql, values, (err, result) => {
-    if (err)
-      return res
-        .status(500)
-        .json({ message: "Internal Server Error", error: err });
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Service not found" });
+  const updateServiceSql = `
+    UPDATE services
+    SET name = ?, price = ?, time = ?
+    WHERE id = ?
+  `;
+
+  db.query(updateServiceSql, [name, price, time, id], (err, result) => {
+    if (err) {
+      console.error("❌ Error updating service:", err);
+      return res.status(500).json({ error: "Failed to update service" });
     }
-    res.json({ message: "Service updated successfully" });
+
+    // ✅ Update the employee_services table
+    const deleteSql = "DELETE FROM employee_services WHERE service_id = ?";
+    db.query(deleteSql, [id], (delErr) => {
+      if (delErr) {
+        console.error("❌ Failed to clear employee_services:", delErr);
+        return res
+          .status(500)
+          .json({ error: "Failed to clear employee_services" });
+      }
+
+      if (!employee_ids || employee_ids.length === 0) {
+        return res.json({ message: "Service updated with no employees" });
+      }
+
+      const insertSql =
+        "INSERT INTO employee_services (service_id, employee_id) VALUES ?";
+      const insertValues = employee_ids.map((empId) => [id, empId]);
+
+      db.query(insertSql, [insertValues], (insErr) => {
+        if (insErr) {
+          console.error("❌ Failed to insert employee_services:", insErr);
+          return res
+            .status(500)
+            .json({ error: "Failed to insert employee_services" });
+        }
+
+        res.json({ message: "Service and employees updated successfully" });
+      });
+    });
+  });
+});
+
+// Get employees assigned to a specific service
+app.get("/api/service-employees/:serviceId", (req, res) => {
+  const { serviceId } = req.params;
+  const sql = `SELECT employee_id FROM employee_services WHERE service_id = ?`;
+
+  db.query(sql, [serviceId], (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch assigned employees:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    const employeeIds = results.map((row) => row.employee_id);
+    res.json({ employeeIds });
   });
 });
 
@@ -1118,7 +1201,6 @@ app.get("/api/special-hours/conflict-check", (req, res) => {
     res.json(results);
   });
 });
-
 
 app.delete("/api/special-hours/cancel-appointments", (req, res) => {
   const { date, reason } = req.body;
