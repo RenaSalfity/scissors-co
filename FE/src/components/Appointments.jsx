@@ -7,7 +7,6 @@ import SignUpModal from "./SignUpModal";
 
 function Appointments({ user }) {
   const [appointments, setAppointments] = useState([]);
-  const [viewMode, setViewMode] = useState("day");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [categories, setCategories] = useState([]);
@@ -26,10 +25,74 @@ function Appointments({ user }) {
     time: "",
   });
 
-  const totalRevenue = appointments.reduce((sum, appt) => {
-    const price = parseFloat(appt.price);
-    return sum + (isNaN(price) ? 0 : price);
-  }, 0);
+  // 🗓 Define current month range
+  const today = new Date();
+  const toLocalDateString = (date) => {
+    const offset = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - offset * 60 * 1000);
+    return local.toISOString().split("T")[0];
+  };
+
+  const defaultStartDate = toLocalDateString(
+    new Date(today.getFullYear(), today.getMonth(), 1)
+  );
+  const defaultEndDate = toLocalDateString(
+    new Date(today.getFullYear(), today.getMonth() + 1, 0)
+  );
+  
+
+  // 💡 Initialize with current month
+  useEffect(() => {
+    console.log(defaultStartDate);
+    setStartDate(defaultStartDate);
+    setEndDate(defaultEndDate);
+    fetchAppointments(defaultStartDate, defaultEndDate);
+    fetchCategories();
+    fetchEmployees();
+  }, []);
+
+  // 👤 React to employee change
+  useEffect(() => {
+    fetchAppointments();
+  }, [form.employeeId]);
+
+  // 📅 React to date changes
+  useEffect(() => {
+    fetchAppointments();
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    if (selectedCategory) fetchServicesByCategory(selectedCategory);
+    else setServices([]);
+  }, [selectedCategory]);
+
+  const fetchAppointments = (start = startDate, end = endDate) => {
+    const employeeParam =
+      user.role === "Employee"
+        ? `&employeeId=${user.id}`
+        : form.employeeId
+        ? `&employeeId=${form.employeeId}`
+        : "";
+
+    const dateFilter =
+      start && end
+        ? `?start=${start}&end=${end}${employeeParam}`
+        : employeeParam
+        ? `?${employeeParam.substring(1)}`
+        : "";
+
+    axios
+      .get(`http://localhost:5001/api/appointments${dateFilter}`)
+      .then((res) => setAppointments(res.data))
+      .catch((err) => console.error("Failed to fetch appointments:", err));
+  };
+
+  const handleResetFilters = () => {
+    setForm((prev) => ({ ...prev, employeeId: "" }));
+    setStartDate(defaultStartDate);
+    setEndDate(defaultEndDate);
+    fetchAppointments(defaultStartDate, defaultEndDate);
+  };
 
   const handleExportPDF = async () => {
     const doc = new jsPDF();
@@ -38,7 +101,6 @@ function Appointments({ user }) {
     const vatMap = {};
     const uniqueDates = [...new Set(appointments.map((a) => a.date))];
 
-    // Fetch VAT for each unique date
     for (const date of uniqueDates) {
       try {
         const res = await axios.get(`http://localhost:5001/api/vat/by-date`, {
@@ -81,67 +143,16 @@ function Appointments({ user }) {
       return { price, vat, beforeVAT };
     });
 
-    const totalRevenue = totalVATs.reduce((sum, r) => sum + r.price, 0);
+    const revenueSum = totalVATs.reduce((sum, r) => sum + r.price, 0);
     const totalBeforeVAT = totalVATs.reduce((sum, r) => sum + r.beforeVAT, 0);
-    const vatAmount = totalRevenue - totalBeforeVAT;
+    const vatAmount = revenueSum - totalBeforeVAT;
 
     const lastY = doc.lastAutoTable.finalY + 10;
     doc.text(`Total Before VAT: ${totalBeforeVAT.toFixed(2)} ils`, 14, lastY);
     doc.text(`VAT Amount: ${vatAmount.toFixed(2)} ils`, 14, lastY + 10);
-    doc.text(`Total Revenue: ${totalRevenue.toFixed(2)} ils`, 14, lastY + 20);
+    doc.text(`Total Revenue: ${revenueSum.toFixed(2)} ils`, 14, lastY + 20);
 
     doc.save("appointments_report.pdf");
-  };
-  
-
-  useEffect(() => {
-    if (viewMode !== "custom") fetchAppointments();
-  }, [viewMode]);
-
-  useEffect(() => {
-    fetchCategories();
-    fetchEmployees();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCategory) fetchServicesByCategory(selectedCategory);
-    else setServices([]);
-  }, [selectedCategory]);
-
-  const fetchAppointments = () => {
-    const employeeParam =
-      user.role === "Employee"
-        ? `&employeeId=${user.id}`
-        : form.employeeId
-        ? `&employeeId=${form.employeeId}`
-        : "";
-
-    axios
-      .get(
-        `http://localhost:5001/api/appointments?view=${viewMode}${employeeParam}`
-      )
-      .then((res) => setAppointments(res.data))
-      .catch((err) => console.error("Failed to fetch appointments:", err));
-  };
-
-  const handleFilterByDate = () => {
-    if (!startDate || !endDate) return alert("Please select both dates.");
-    const employeeParam =
-      user.role === "Employee"
-        ? `&employeeId=${user.id}`
-        : form.employeeId
-        ? `&employeeId=${form.employeeId}`
-        : "";
-
-    axios
-      .get(
-        `http://localhost:5001/api/appointments?start=${startDate}&end=${endDate}${employeeParam}`
-      )
-      .then((res) => {
-        setAppointments(res.data);
-        setViewMode("custom");
-      })
-      .catch((err) => console.error("Failed to filter appointments:", err));
   };
 
   const fetchCategories = () => {
@@ -174,10 +185,7 @@ function Appointments({ user }) {
         const filtered = res.data.filter((emp) => emp.id !== user.id);
         setEmployees(filtered);
       })
-      .catch((err) => {
-        console.error("Error loading available employees:", err);
-        setEmployees([]);
-      });
+      .catch(() => setEmployees([]));
   };
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
@@ -247,28 +255,19 @@ function Appointments({ user }) {
         setFilteredTimes([]);
         setEmailExists(true);
       })
-      .catch((err) => {
-        console.error("Failed to create appointment:", err);
-        alert("Booking failed.");
-      });
+      .catch(() => alert("Booking failed."));
   };
+
+  const totalRevenue = appointments.reduce((sum, appt) => {
+    const price = parseFloat(appt.price);
+    return sum + (isNaN(price) ? 0 : price);
+  }, 0);
 
   return (
     <div className="appointments-screen">
       <h1>Manage Appointments</h1>
 
-      {/* Filters */}
       <div className="filters">
-        <label>View Mode:</label>
-        <select
-          onChange={(e) => setViewMode(e.target.value)}
-          value={viewMode === "custom" ? "" : viewMode}
-        >
-          <option value="day">Daily</option>
-          <option value="week">Weekly</option>
-          <option value="year">Yearly</option>
-        </select>
-
         {user.role === "Admin" && (
           <>
             <label>Filter by Employee:</label>
@@ -301,11 +300,10 @@ function Appointments({ user }) {
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />
-        <button onClick={handleFilterByDate}>Filter</button>
+        <button onClick={handleResetFilters}>Reset</button>
         <button onClick={handleExportPDF}>Export to PDF</button>
       </div>
 
-      {/* Appointments Table */}
       <table className="appointments-table">
         <thead>
           <tr>
@@ -318,18 +316,24 @@ function Appointments({ user }) {
           </tr>
         </thead>
         <tbody>
-          {appointments.map((appt) => (
-            <tr key={appt.id}>
-              <td>{appt.status}</td>
-              <td>
-                {appt.date} {appt.time}
-              </td>
-              <td>{appt.customer_name}</td>
-              {user.role === "Admin" && <td>{appt.employee_name}</td>}
-              <td>{appt.service_name}</td>
-              <td>{appt.price} ₪</td>
-            </tr>
-          ))}
+          {[...appointments]
+            .sort((a, b) => {
+              const dateA = new Date(`${a.date}T${a.time}`);
+              const dateB = new Date(`${b.date}T${b.time}`);
+              return dateA - dateB;
+            })
+            .map((appt) => (
+              <tr key={appt.id}>
+                <td>{appt.status}</td>
+                <td>
+                  {appt.date} {appt.time}
+                </td>
+                <td>{appt.customer_name}</td>
+                {user.role === "Admin" && <td>{appt.employee_name}</td>}
+                <td>{appt.service_name}</td>
+                <td>{appt.price} ₪</td>
+              </tr>
+            ))}
         </tbody>
         <tfoot>
           <tr>
@@ -344,7 +348,6 @@ function Appointments({ user }) {
         </tfoot>
       </table>
 
-      {/* Booking Form */}
       <div className="book-appointment">
         <h2>Book an Appointment for Customer</h2>
         <input

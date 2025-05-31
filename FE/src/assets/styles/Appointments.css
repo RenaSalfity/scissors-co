@@ -20,13 +20,17 @@
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 1rem 2rem;
   justify-content: center;
   margin-bottom: 2rem;
 }
 
 .filters label {
   font-weight: bold;
+  color: #5a3e1a; /* Dark brown for good contrast */
+  min-width: 100px;
+  display: flex;
+  align-items: center;
 }
 
 .filters input,
@@ -35,6 +39,7 @@
   border-radius: 0.5rem;
   border: 1px solid #ccc;
 }
+
 
 .appointments-table {
   width: 100%;
@@ -91,3 +96,26 @@
 .book-appointment button:hover {
   background-color: #e07000;
 }
+
+.filters button {
+  padding: 0.8rem 1.5rem;
+  background-color: #d97f00;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.filters button:hover {
+  background-color: #bf6f00;
+}
+
+.appointments-table th {
+  background-color: rgb(240, 168, 117);
+  color: white;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
