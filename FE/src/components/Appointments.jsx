@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // ✅ Correct import
+import autoTable from "jspdf-autotable";
 import "../assets/styles/Appointments.css";
 import SignUpModal from "./SignUpModal";
 
@@ -10,13 +10,11 @@ function Appointments({ user }) {
   const [viewMode, setViewMode] = useState("day");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [filteredTimes, setFilteredTimes] = useState([]);
-
   const [emailExists, setEmailExists] = useState(true);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
 
@@ -32,11 +30,26 @@ function Appointments({ user }) {
     const price = parseFloat(appt.price);
     return sum + (isNaN(price) ? 0 : price);
   }, 0);
-  
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF();
     doc.text("Appointments Report", 14, 16);
+
+    const vatMap = {};
+    const uniqueDates = [...new Set(appointments.map((a) => a.date))];
+
+    // Fetch VAT for each unique date
+    for (const date of uniqueDates) {
+      try {
+        const res = await axios.get(`http://localhost:5001/api/vat/by-date`, {
+          params: { date },
+        });
+        vatMap[date] = parseFloat(res.data.percentage || "0");
+      } catch {
+        vatMap[date] = 0;
+      }
+    }
+
     autoTable(doc, {
       startY: 20,
       head: [
@@ -47,7 +60,7 @@ function Appointments({ user }) {
           "Customer",
           ...(user.role === "Admin" ? ["Employee"] : []),
           "Service",
-          "Price",
+          "Price (ils)",
         ],
       ],
       body: appointments.map((appt) => [
@@ -57,32 +70,28 @@ function Appointments({ user }) {
         appt.customer_name,
         ...(user.role === "Admin" ? [appt.employee_name] : []),
         appt.service_name,
-        `${appt.price} ILS`, // ✅ No more weird symbols
+        `${appt.price} ils`,
       ]),
     });
 
-    const totalBeforeTax = totalRevenue / 1.18;
-    const taxAmount = totalRevenue - totalBeforeTax;
+    const totalVATs = appointments.map((appt) => {
+      const vat = vatMap[appt.date] || 0;
+      const price = parseFloat(appt.price || 0);
+      const beforeVAT = price / (1 + vat / 100);
+      return { price, vat, beforeVAT };
+    });
 
-    doc.text(
-      `Total Before Tax: ${totalBeforeTax.toFixed(2)} ILS`,
-      14,
-      doc.lastAutoTable.finalY + 20
-    );
-    doc.text(
-      `VAT (18%): ${taxAmount.toFixed(2)} ILS`,
-      14,
-      doc.lastAutoTable.finalY + 30
-    );
-    doc.text(
-      `Total Revenue: ${totalRevenue.toFixed(2)} ILS`,
-      14,
-      doc.lastAutoTable.finalY + 40
-    );
+    const totalRevenue = totalVATs.reduce((sum, r) => sum + r.price, 0);
+    const totalBeforeVAT = totalVATs.reduce((sum, r) => sum + r.beforeVAT, 0);
+    const vatAmount = totalRevenue - totalBeforeVAT;
+
+    const lastY = doc.lastAutoTable.finalY + 10;
+    doc.text(`Total Before VAT: ${totalBeforeVAT.toFixed(2)} ils`, 14, lastY);
+    doc.text(`VAT Amount: ${vatAmount.toFixed(2)} ils`, 14, lastY + 10);
+    doc.text(`Total Revenue: ${totalRevenue.toFixed(2)} ils`, 14, lastY + 20);
 
     doc.save("appointments_report.pdf");
   };
-  
   
 
   useEffect(() => {
@@ -116,11 +125,7 @@ function Appointments({ user }) {
   };
 
   const handleFilterByDate = () => {
-    if (!startDate || !endDate) {
-      alert("Please select both start and end dates.");
-      return;
-    }
-
+    if (!startDate || !endDate) return alert("Please select both dates.");
     const employeeParam =
       user.role === "Employee"
         ? `&employeeId=${user.id}`
@@ -136,9 +141,7 @@ function Appointments({ user }) {
         setAppointments(res.data);
         setViewMode("custom");
       })
-      .catch((err) => {
-        console.error("❌ Failed to filter appointments by date:", err);
-      });
+      .catch((err) => console.error("Failed to filter appointments:", err));
   };
 
   const fetchCategories = () => {
@@ -222,13 +225,7 @@ function Appointments({ user }) {
       time: form.time,
     };
 
-    if (
-      !payload.customerEmail ||
-      !payload.serviceId ||
-      !payload.employeeId ||
-      !payload.date ||
-      !payload.time
-    ) {
+    if (Object.values(payload).some((v) => !v)) {
       alert("Please fill in all fields.");
       return;
     }
@@ -251,7 +248,7 @@ function Appointments({ user }) {
         setEmailExists(true);
       })
       .catch((err) => {
-        console.error("❌ Failed to create appointment:", err);
+        console.error("Failed to create appointment:", err);
         alert("Booking failed.");
       });
   };
@@ -305,6 +302,7 @@ function Appointments({ user }) {
           onChange={(e) => setEndDate(e.target.value)}
         />
         <button onClick={handleFilterByDate}>Filter</button>
+        <button onClick={handleExportPDF}>Export to PDF</button>
       </div>
 
       {/* Appointments Table */}
@@ -346,11 +344,7 @@ function Appointments({ user }) {
         </tfoot>
       </table>
 
-      <div style={{ marginTop: "1rem", textAlign: "center" }}>
-        <button onClick={handleExportPDF}>Export to PDF</button>
-      </div>
-
-      {/* Booking Form for Customer */}
+      {/* Booking Form */}
       <div className="book-appointment">
         <h2>Book an Appointment for Customer</h2>
         <input

@@ -23,6 +23,13 @@ function Settings({ user }) {
     note: "",
   });
 
+  const [newVat, setNewVat] = useState("");
+  const [vatStartDate, setVatStartDate] = useState(
+    () => new Date().toISOString().split("T")[0]
+  );
+  const [currentVat, setCurrentVat] = useState(null);
+  const [vatMsg, setVatMsg] = useState("");
+
   const todayStr = new Date().toISOString().split("T")[0];
 
   const days = [
@@ -69,6 +76,11 @@ function Settings({ user }) {
           setBusinessHours(cleanTimes);
         })
         .catch((err) => console.error("Failed to load business hours:", err));
+
+      axios
+        .get(`${API_BASE}/api/vat/current`)
+        .then((res) => setCurrentVat(res.data?.percentage || null))
+        .catch(() => setCurrentVat(null));
     }
   }, [user]);
 
@@ -147,7 +159,6 @@ function Settings({ user }) {
       });
 
       alert("Special hours saved.");
-
       setHoliday({
         start_date: "",
         end_date: "",
@@ -163,9 +174,26 @@ function Settings({ user }) {
     }
   };
 
+  const handleVatSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API_BASE}/api/vat`, {
+        percentage: parseFloat(newVat),
+        start_date: vatStartDate,
+      });
+      setVatMsg("VAT updated successfully.");
+      setNewVat("");
+      setVatStartDate(new Date().toISOString().split("T")[0]);
+    } catch (err) {
+      console.error("VAT update failed:", err);
+      setVatMsg("Failed to update VAT.");
+    }
+  };
+
   return (
     <div className="settings-container">
       <div className="settings-cards-wrapper">
+        {/* Profile Settings */}
         <div className="settings-card">
           <h2>Settings</h2>
           <form onSubmit={handleSubmit} className="settings-form">
@@ -202,8 +230,10 @@ function Settings({ user }) {
           </form>
         </div>
 
+        {/* Admin Sections */}
         {user.role === "Admin" && (
           <>
+            {/* Business Hours */}
             <div className="settings-card">
               <h2>Business Hours</h2>
               <table className="business-hours-table">
@@ -272,6 +302,7 @@ function Settings({ user }) {
               </button>
             </div>
 
+            {/* Special Hours */}
             <div className="settings-card">
               <h2>Special Business Hours</h2>
               <div className="settings-form">
@@ -287,7 +318,6 @@ function Settings({ user }) {
                   }
                   min={todayStr}
                 />
-
                 <label>Reason</label>
                 <select
                   value={holiday.reason}
@@ -299,7 +329,6 @@ function Settings({ user }) {
                   <option value="Holiday">Holiday</option>
                   <option value="Other">Other</option>
                 </select>
-
                 <label>Start Time</label>
                 <select
                   value={holiday.start_time || ""}
@@ -318,7 +347,6 @@ function Settings({ user }) {
                     </option>
                   ))}
                 </select>
-
                 <label>End Time</label>
                 <select
                   value={holiday.end_time || ""}
@@ -337,7 +365,6 @@ function Settings({ user }) {
                     </option>
                   ))}
                 </select>
-
                 <label>Note</label>
                 <input
                   type="text"
@@ -346,11 +373,41 @@ function Settings({ user }) {
                     setHoliday((prev) => ({ ...prev, note: e.target.value }))
                   }
                 />
-
                 <button onClick={submitSpecialHours} className="save-btn">
                   Save Special Hours
                 </button>
               </div>
+            </div>
+
+            {/* VAT Settings */}
+            <div className="settings-card">
+              <h2>VAT Settings</h2>
+              <p>
+                Current VAT:{" "}
+                {currentVat !== null ? `${currentVat}%` : "Loading..."}
+              </p>
+              <form onSubmit={handleVatSubmit} className="settings-form">
+                <label>New VAT Percentage (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newVat}
+                  onChange={(e) => setNewVat(e.target.value)}
+                  required
+                />
+                <label>Start Date</label>
+                <input
+                  type="date"
+                  value={vatStartDate}
+                  onChange={(e) => setVatStartDate(e.target.value)}
+                  required
+                />
+                <button type="submit" className="save-btn">
+                  Update VAT
+                </button>
+                {vatMsg && <p>{vatMsg}</p>}
+              </form>
             </div>
           </>
         )}

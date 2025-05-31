@@ -1328,3 +1328,56 @@ app.post("/api/password-reset/update", (req, res) => {
     });
   });
 });
+
+
+//get current vat
+app.get("/api/vat/current", (req, res) => {
+  const sql = `
+    SELECT percentage FROM vat
+    WHERE start_date <= CURDATE()
+    ORDER BY start_date DESC
+    LIMIT 1
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    res.json(results[0]);
+  });
+});
+
+//change vat
+app.post("/api/vat", (req, res) => {
+  const { percentage, start_date } = req.body;
+
+  if (!percentage || !start_date) {
+    return res.status(400).json({ error: "Missing percentage or start date" });
+  }
+
+  const sql = "INSERT INTO vat (percentage, start_date) VALUES (?, ?)";
+  db.query(sql, [percentage, start_date], (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Insert failed", details: err });
+    res
+      .status(201)
+      .json({ message: "VAT added successfully", id: result.insertId });
+  });
+});
+
+//get vat for specif date
+app.get("/api/vat/by-date", (req, res) => {
+  const { date } = req.query;
+
+  if (!date) return res.status(400).json({ error: "Missing date" });
+
+  const sql = `
+    SELECT percentage FROM vat
+    WHERE start_date <= ?
+    ORDER BY start_date DESC
+    LIMIT 1
+  `;
+
+  db.query(sql, [date], (err, results) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    res.json(results[0]);
+  });
+});
