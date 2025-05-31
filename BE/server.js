@@ -951,6 +951,7 @@ app.put("/api/holidays/check-missing-proof", (req, res) => {
   });
 });
 
+// ✅ Get holidays for a specific employee
 app.get("/api/holidays/:employeeId", (req, res) => {
   const { employeeId } = req.params;
   const sql = `
@@ -1254,7 +1255,38 @@ app.delete("/api/special-hours/cancel-appointments", (req, res) => {
     });
   });
 });
+app.put("/api/appointments/:id/status", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
 
+  const allowedStatuses = [
+    "pending",
+    "done",
+    "no show",
+    "cancelled by customer",
+    "cancelled by business",
+  ];
+
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ message: "Invalid status value." });
+  }
+
+  try {
+    const result = await db.execute(
+      "UPDATE appointments SET status = ? WHERE id = ?",
+      [status, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Appointment not found." });
+    }
+
+    res.json({ message: "Status updated." });
+  } catch (err) {
+    console.error("Status update error:", err);
+    res.status(500).json({ message: "Server error." });
+  }
+});
 // GET /api/users?role=Admin
 app.get("/api/users", (req, res) => {
   const { role } = req.query;

@@ -16,6 +16,7 @@ function Appointments({ user }) {
   const [filteredTimes, setFilteredTimes] = useState([]);
   const [emailExists, setEmailExists] = useState(true);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [editedStatuses, setEditedStatuses] = useState({});
 
   const [form, setForm] = useState({
     customerEmail: "",
@@ -81,6 +82,90 @@ function Appointments({ user }) {
       .catch((err) => console.error("Failed to fetch appointments:", err));
   };
 
+  const fetchCategories = () => {
+    axios
+      .get("http://localhost:5001/categories")
+      .then((res) => setCategories(res.data))
+      .catch((err) => console.error("Failed to load categories:", err));
+  };
+
+  const fetchEmployees = () => {
+    axios
+      .get("http://localhost:5001/api/employees")
+      .then((res) => setEmployees(res.data))
+      .catch((err) => console.error("Failed to load employees:", err));
+  };
+
+  const fetchServicesByCategory = (categoryId) => {
+    axios
+      .get(`http://localhost:5001/services/${categoryId}`)
+      .then((res) => setServices(res.data))
+      .catch((err) => console.error("Failed to load services:", err));
+  };
+
+  const fetchAvailableEmployees = (date) => {
+    axios
+      .get("http://localhost:5001/api/employees/available", {
+        params: { date },
+      })
+      .then((res) => {
+        const filtered = res.data.filter((emp) => emp.id !== user.id);
+        setEmployees(filtered);
+      })
+      .catch(() => setEmployees([]));
+  };
+
+  const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
+    const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
+    axios
+      .get("http://localhost:5001/api/available-times", {
+        params: { serviceId, employeeId, date: normalizedDate },
+      })
+      .then((res) => setFilteredTimes(res.data))
+      .catch(() => setFilteredTimes([]));
+  };
+
+  const checkCustomerEmail = () => {
+    const email = form.customerEmail.trim();
+    if (!email) return;
+    axios
+      .get(`http://localhost:5001/api/users/check-email?email=${email}`)
+      .then((res) => setEmailExists(res.data.exists))
+      .catch(() => setEmailExists(true));
+  };
+
+  const handleStatusChange = (appointmentId, newStatus) => {
+    setEditedStatuses((prev) => ({
+      ...prev,
+      [appointmentId]: newStatus,
+    }));
+  };
+
+  const handleSaveAllStatuses = async () => {
+    const updates = Object.entries(editedStatuses);
+    try {
+      await Promise.all(
+        updates.map(([id, status]) =>
+          axios.put(`http://localhost:5001/api/appointments/${id}/status`, {
+            status,
+          })
+        )
+      );
+      setAppointments((prev) =>
+        prev.map((appt) =>
+          editedStatuses[appt.id]
+            ? { ...appt, status: editedStatuses[appt.id] }
+            : appt
+        )
+      );
+      setEditedStatuses({});
+      alert("Statuses updated successfully.");
+    } catch (err) {
+      console.error("Failed to update statuses", err);
+      alert("Failed to update statuses.");
+    }
+  };
+
   const handleResetFilters = () => {
     setForm((prev) => ({ ...prev, employeeId: "" }));
     setStartDate(defaultStartDate);
@@ -94,7 +179,7 @@ function Appointments({ user }) {
     if (appointments.length === 0) {
       doc.text("No appointments found in this period.", 14, 16);
       doc.save("appointments_report.pdf");
-      return; // Exit early if no appointments found
+      return;
     }
 
     doc.text("Appointments Report", 14, 16);
@@ -155,61 +240,6 @@ function Appointments({ user }) {
     doc.text(`Total Revenue: ${revenueSum.toFixed(2)} ils`, 14, lastY + 20);
 
     doc.save("appointments_report.pdf");
-  };
-  
-
-  
-
-  const fetchCategories = () => {
-    axios
-      .get("http://localhost:5001/categories")
-      .then((res) => setCategories(res.data))
-      .catch((err) => console.error("Failed to load categories:", err));
-  };
-
-  const fetchServicesByCategory = (categoryId) => {
-    axios
-      .get(`http://localhost:5001/services/${categoryId}`)
-      .then((res) => setServices(res.data))
-      .catch((err) => console.error("Failed to load services:", err));
-  };
-
-  const fetchEmployees = () => {
-    axios
-      .get("http://localhost:5001/api/employees")
-      .then((res) => setEmployees(res.data))
-      .catch((err) => console.error("Failed to load employees:", err));
-  };
-
-  const fetchAvailableEmployees = (date) => {
-    axios
-      .get("http://localhost:5001/api/employees/available", {
-        params: { date },
-      })
-      .then((res) => {
-        const filtered = res.data.filter((emp) => emp.id !== user.id);
-        setEmployees(filtered);
-      })
-      .catch(() => setEmployees([]));
-  };
-
-  const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
-    const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
-    axios
-      .get("http://localhost:5001/api/available-times", {
-        params: { serviceId, employeeId, date: normalizedDate },
-      })
-      .then((res) => setFilteredTimes(res.data))
-      .catch(() => setFilteredTimes([]));
-  };
-
-  const checkCustomerEmail = () => {
-    const email = form.customerEmail.trim();
-    if (!email) return;
-    axios
-      .get(`http://localhost:5001/api/users/check-email?email=${email}`)
-      .then((res) => setEmailExists(res.data.exists))
-      .catch(() => setEmailExists(true));
   };
 
   const handleFormChange = (e) => {
@@ -275,7 +305,6 @@ function Appointments({ user }) {
         📅 Showing appointments from {startDate} to {endDate}
       </p>
 
-      {/* Filters */}
       <div className="filters">
         {user.role === "Admin" && (
           <>
@@ -296,7 +325,6 @@ function Appointments({ user }) {
             </select>
           </>
         )}
-
         <label>Start Date:</label>
         <input
           type="date"
@@ -310,12 +338,13 @@ function Appointments({ user }) {
           onChange={(e) => setEndDate(e.target.value)}
         />
         <button onClick={handleResetFilters}>Reset</button>
-        <button onClick={handleExportPDF}>
-          Export to PDF
-        </button>
+        <button onClick={handleExportPDF}>Export to PDF</button>
+        {(user.role === "Admin" || user.role === "Employee") &&
+          Object.keys(editedStatuses).length > 0 && (
+            <button onClick={handleSaveAllStatuses}>Save All Changes</button>
+          )}
       </div>
 
-      {/* Appointments Table */}
       <table className="appointments-table">
         <thead>
           <tr>
@@ -336,7 +365,28 @@ function Appointments({ user }) {
             )
             .map((appt) => (
               <tr key={appt.id}>
-                <td>{appt.status}</td>
+                <td>
+                  {user.role === "Admin" || user.role === "Employee" ? (
+                    <select
+                      value={editedStatuses[appt.id] ?? appt.status}
+                      onChange={(e) =>
+                        handleStatusChange(appt.id, e.target.value)
+                      }
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="done">Done</option>
+                      <option value="no show">No Show</option>
+                      <option value="cancelled by customer">
+                        Cancelled by Customer
+                      </option>
+                      <option value="cancelled by business">
+                        Cancelled by Business
+                      </option>
+                    </select>
+                  ) : (
+                    <span>{appt.status}</span>
+                  )}
+                </td>
                 <td>
                   {appt.date} {appt.time}
                 </td>
