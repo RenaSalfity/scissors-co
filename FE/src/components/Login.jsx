@@ -11,10 +11,17 @@ function Login({ setUser }) {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // ✨ Email verification states
   const [codeSent, setCodeSent] = useState(false);
   const [verifyCode, setVerifyCode] = useState("");
   const [isVerified, setIsVerified] = useState(false);
+
+  // Forgot password states
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+  const [resetVerified, setResetVerified] = useState(false);
 
   const validateInput = () => {
     if (isSignUp) {
@@ -138,6 +145,64 @@ function Login({ setUser }) {
     }
   };
 
+  // 🔁 Forgot password handlers
+  const handleSendResetCode = async () => {
+    try {
+      const res = await fetch(
+        "http://localhost:5001/api/password-reset/send-code",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: resetEmail }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) return setError(data.error);
+      setResetCodeSent(true);
+      alert("Code sent to email.");
+    } catch {
+      setError("Failed to send code");
+    }
+  };
+
+  const handleVerifyResetCode = async () => {
+    try {
+      const res = await fetch(
+        "http://localhost:5001/api/password-reset/verify-code",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: resetEmail, code: resetCode }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) return setError(data.error);
+      setResetVerified(true);
+      alert("Code verified. Enter new password.");
+    } catch {
+      setError("Verification failed");
+    }
+  };
+
+  const handleResetPassword = async () => {
+    try {
+      const res = await fetch(
+        "http://localhost:5001/api/password-reset/update",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: resetEmail, newPassword }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) return setError(data.error);
+      alert("Password updated. You can now login.");
+      setForgotMode(false);
+    } catch {
+      setError("Reset failed");
+    }
+  };
+
   return (
     <div className="login-container">
       <h1 className="login-title">
@@ -145,7 +210,6 @@ function Login({ setUser }) {
       </h1>
       {error && <p className="error">{error}</p>}
       <form className="login-form" onSubmit={handleSubmit}>
-        {/* Sign Up fields */}
         {isSignUp && (
           <>
             <div className="form-group">
@@ -158,7 +222,6 @@ function Login({ setUser }) {
                 required
               />
             </div>
-
             <div className="form-group">
               <label>Phone Number</label>
               <input
@@ -171,22 +234,22 @@ function Login({ setUser }) {
             </div>
           </>
         )}
-        {/* Always show email */}
 
         <div className="form-group">
           <label>Email</label>
-          {/* after pressing send verification button iam locking the section of the
-          email bc they can change it */}
           <input
             type="email"
             placeholder="Enter your email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setPassword(""); // 🔒 Clear password when email changes
+            }}
             required
-            disabled={codeSent}
+            disabled={codeSent && isSignUp}
           />
         </div>
-        {/* Email verification for signup */}
+
         {isSignUp && !isVerified && (
           <>
             <div className="form-group">
@@ -219,7 +282,7 @@ function Login({ setUser }) {
             )}
           </>
         )}
-        {/* Password field */}
+
         <div className="form-group">
           <label>Password</label>
           <input
@@ -230,11 +293,64 @@ function Login({ setUser }) {
             required
           />
         </div>
-        {/* Submit */}
+
         <button type="submit" className="login-btn">
           {isSignUp ? "Sign Up" : "Login"}
         </button>
       </form>
+
+      {!isSignUp && !forgotMode && (
+        <p className="login-footer">
+          <span className="toggle-link" onClick={() => setForgotMode(true)}>
+            Forgot Password?
+          </span>
+        </p>
+      )}
+
+      {forgotMode && (
+        <div className="forgot-section">
+          <h3>Reset Password</h3>
+          {!resetCodeSent && (
+            <>
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+              />
+              <button className="login-btn" onClick={handleSendResetCode}>
+                Send Code
+              </button>
+            </>
+          )}
+          {resetCodeSent && !resetVerified && (
+            <>
+              <input
+                type="text"
+                placeholder="Enter code"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value)}
+              />
+              <button className="login-btn" onClick={handleVerifyResetCode}>
+                Verify Code
+              </button>
+            </>
+          )}
+          {resetVerified && (
+            <>
+              <input
+                type="password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <button className="login-btn" onClick={handleResetPassword}>
+                Set New Password
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <p className="login-footer">
         {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
@@ -245,6 +361,7 @@ function Login({ setUser }) {
             setIsVerified(false);
             setCodeSent(false);
             setVerifyCode("");
+            setForgotMode(false);
           }}
         >
           {isSignUp ? "Login" : "Sign Up"}

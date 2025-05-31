@@ -170,3 +170,30 @@ body {
     font-size: 1.2rem;
   }
 }
+/* Forgot password section */
+.forgot-section {
+  margin-top: 2rem;
+  text-align: left;
+  color: #fff;
+}
+
+.forgot-section h3 {
+  margin-bottom: 1rem;
+  font-size: 1.6rem;
+}
+
+.forgot-section input {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  outline: none;
+  margin-bottom: 1rem;
+}
+
+.forgot-section input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}

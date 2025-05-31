@@ -1262,3 +1262,69 @@ app.get("/api/users", (req, res) => {
     res.json(results);
   });
 });
+// 1. Send reset code
+app.post("/api/password-reset/send-code", (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email required" });
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  emailVerifications[email] = { code, expiresAt };
+
+  const mailOptions = {
+    from: "Scissors&Co <scissorsco2025@gmail.com>",
+    to: email,
+    subject: "Password Reset Code – Scissors & Co.",
+    text: `Your password reset code is: ${code}`,
+  };
+
+  transporter.sendMail(mailOptions, (err) => {
+    if (err) return res.status(500).json({ error: "Failed to send email" });
+    res.json({ message: "Reset code sent to email" });
+  });
+});
+
+// 2. Verify reset code
+app.post("/api/password-reset/verify-code", (req, res) => {
+  const { email, code } = req.body;
+  const record = emailVerifications[email];
+  if (!record || record.code !== code || Date.now() > record.expiresAt) {
+    return res.status(400).json({ error: "Invalid or expired code" });
+  }
+
+  emailVerifications[email].resetVerified = true;
+  res.json({ message: "Code verified" });
+});
+
+// 3. Update password
+app.post("/api/password-reset/update", (req, res) => {
+  const { email, newPassword } = req.body;
+  const record = emailVerifications[email];
+  if (!record || !record.resetVerified) {
+    return res.status(403).json({ error: "Email not verified for reset" });
+  }
+
+  bcrypt.hash(newPassword, 10, (err, hash) => {
+    if (err) return res.status(500).json({ error: "Hashing failed" });
+
+    const sql = "UPDATE users SET password = ? WHERE email = ?";
+    db.query(sql, [hash, email], (err2, result) => {
+      if (err2) return res.status(500).json({ error: "Update failed" });
+
+      delete emailVerifications[email];
+
+      const mailOptions = {
+        from: "Scissors&Co <scissorsco2025@gmail.com>",
+        to: email,
+        subject: "Password Updated – Scissors & Co.",
+        text: `Hello,\n\nYour password was successfully updated.\n\nIf you did not make this change, please contact support immediately.\n\n— Scissors & Co.`,
+      };
+
+      transporter.sendMail(mailOptions, (err3) => {
+        if (err3) console.error("Failed to send confirmation email:", err3);
+      });
+
+      res.json({ message: "Password updated successfully" });
+    });
+  });
+});
