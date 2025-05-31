@@ -25,7 +25,6 @@ function Appointments({ user }) {
     time: "",
   });
 
-  // 🗓 Define current month range
   const today = new Date();
   const toLocalDateString = (date) => {
     const offset = date.getTimezoneOffset();
@@ -39,11 +38,8 @@ function Appointments({ user }) {
   const defaultEndDate = toLocalDateString(
     new Date(today.getFullYear(), today.getMonth() + 1, 0)
   );
-  
 
-  // 💡 Initialize with current month
   useEffect(() => {
-    console.log(defaultStartDate);
     setStartDate(defaultStartDate);
     setEndDate(defaultEndDate);
     fetchAppointments(defaultStartDate, defaultEndDate);
@@ -51,12 +47,10 @@ function Appointments({ user }) {
     fetchEmployees();
   }, []);
 
-  // 👤 React to employee change
   useEffect(() => {
     fetchAppointments();
   }, [form.employeeId]);
 
-  // 📅 React to date changes
   useEffect(() => {
     fetchAppointments();
   }, [startDate, endDate]);
@@ -96,7 +90,15 @@ function Appointments({ user }) {
 
   const handleExportPDF = async () => {
     const doc = new jsPDF();
+
+    if (appointments.length === 0) {
+      doc.text("No appointments found in this period.", 14, 16);
+      doc.save("appointments_report.pdf");
+      return; // Exit early if no appointments found
+    }
+
     doc.text("Appointments Report", 14, 16);
+    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 24);
 
     const vatMap = {};
     const uniqueDates = [...new Set(appointments.map((a) => a.date))];
@@ -113,7 +115,7 @@ function Appointments({ user }) {
     }
 
     autoTable(doc, {
-      startY: 20,
+      startY: 30,
       head: [
         [
           "Status",
@@ -154,6 +156,9 @@ function Appointments({ user }) {
 
     doc.save("appointments_report.pdf");
   };
+  
+
+  
 
   const fetchCategories = () => {
     axios
@@ -266,7 +271,11 @@ function Appointments({ user }) {
   return (
     <div className="appointments-screen">
       <h1>Manage Appointments</h1>
+      <p className="date-range-label">
+        📅 Showing appointments from {startDate} to {endDate}
+      </p>
 
+      {/* Filters */}
       <div className="filters">
         {user.role === "Admin" && (
           <>
@@ -301,9 +310,12 @@ function Appointments({ user }) {
           onChange={(e) => setEndDate(e.target.value)}
         />
         <button onClick={handleResetFilters}>Reset</button>
-        <button onClick={handleExportPDF}>Export to PDF</button>
+        <button onClick={handleExportPDF}>
+          Export to PDF
+        </button>
       </div>
 
+      {/* Appointments Table */}
       <table className="appointments-table">
         <thead>
           <tr>
@@ -317,11 +329,11 @@ function Appointments({ user }) {
         </thead>
         <tbody>
           {[...appointments]
-            .sort((a, b) => {
-              const dateA = new Date(`${a.date}T${a.time}`);
-              const dateB = new Date(`${b.date}T${b.time}`);
-              return dateA - dateB;
-            })
+            .sort(
+              (a, b) =>
+                new Date(`${a.date}T${a.time}`) -
+                new Date(`${b.date}T${b.time}`)
+            )
             .map((appt) => (
               <tr key={appt.id}>
                 <td>{appt.status}</td>
@@ -348,6 +360,7 @@ function Appointments({ user }) {
         </tfoot>
       </table>
 
+      {/* Booking Form */}
       <div className="book-appointment">
         <h2>Book an Appointment for Customer</h2>
         <input

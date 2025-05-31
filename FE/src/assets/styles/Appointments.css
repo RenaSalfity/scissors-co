@@ -119,3 +119,11 @@
   text-transform: uppercase;
 }
 
+.date-range-label {
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #5a3e1a;
+  margin-bottom: 1.5rem;
+}
+
