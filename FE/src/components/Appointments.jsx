@@ -203,20 +203,18 @@ function Appointments({ user }) {
       startY: 30,
       head: [
         [
-          "Customer", // Move customer name to the first column
+          "Customer", // First column: Customer name
+          "Date & Time", // Second column: Date & Time
           "Status",
-          "Date",
-          "Time",
           "Employee",
           "Service",
           "Price (ils)",
         ],
       ],
       body: appointments.map((appt) => [
-        appt.customer_name, // Display customer name in the first column
+        appt.customer_name, // Customer name
+        `${appt.date} ${appt.time}`, // Date & Time
         appt.status,
-        appt.date,
-        appt.time,
         appt.employee_name,
         appt.service_name,
         `${appt.price} ils`,
@@ -349,8 +347,8 @@ function Appointments({ user }) {
         <thead>
           <tr>
             <th>Customer</th> {/* First column now shows customer name */}
+            <th>Date & Time</th> {/* Second column now shows date & time */}
             <th>Status</th>
-            <th>Date & Time</th>
             <th>Employee</th>
             <th>Service</th>
             <th>Price</th>
@@ -367,6 +365,9 @@ function Appointments({ user }) {
               <tr key={appt.id}>
                 <td>{appt.customer_name}</td>{" "}
                 {/* Customer name displayed here */}
+                <td>
+                  {appt.date} {appt.time} {/* Date & Time displayed here */}
+                </td>
                 <td>
                   {user.role === "Admin" || user.role === "Employee" ? (
                     <select
@@ -388,9 +389,6 @@ function Appointments({ user }) {
                   ) : (
                     <span>{appt.status}</span>
                   )}
-                </td>
-                <td>
-                  {appt.date} {appt.time}
                 </td>
                 <td>{appt.employee_name}</td>
                 <td>{appt.service_name}</td>
