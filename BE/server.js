@@ -181,14 +181,19 @@ app.get("/api/services", (req, res) => {
 
 // ✅ NEW: Get all employees
 app.get("/api/employees", (req, res) => {
-  const sql = "SELECT id, name FROM users WHERE role = 'Employee'";
+  const sql = `
+    SELECT id, name, email, phone, role
+    FROM users
+    WHERE was_employee = 1
+  `;
   db.query(sql, (err, results) => {
-    if (err)
-      return res.status(500).json({ error: "Database error", details: err });
+    if (err) {
+      console.error("❌ Failed to fetch employees:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
     res.json(results);
   });
 });
-
 // ✅ Update service
 app.put("/services/:id", (req, res) => {
   const { id } = req.params;
@@ -326,14 +331,17 @@ app.get("/api/users/check-email", (req, res) => {
 
 // ✅ Get all customers
 app.get("/api/customers", (req, res) => {
-  const sql = "SELECT id, name, email FROM users WHERE role = 'Customer'";
+  const sql = `
+    SELECT id, name, email
+    FROM users
+    WHERE role = 'Customer' AND was_employee = 0
+  `;
   db.query(sql, (err, results) => {
     if (err)
       return res.status(500).json({ error: "Database error", details: err });
     res.json(results);
   });
 });
-
 // ✅ Update user role (Employee <--> Customer)
 app.put("/api/users/:id/role", (req, res) => {
   const { id } = req.params;
@@ -343,14 +351,18 @@ app.put("/api/users/:id/role", (req, res) => {
     return res.status(400).json({ error: "Invalid role" });
   }
 
-  const sql = "UPDATE users SET role = ? WHERE id = ?";
+  const sql =
+    role === "Employee"
+      ? "UPDATE users SET role = ?, was_employee = 1 WHERE id = ?"
+      : "UPDATE users SET role = ? WHERE id = ?";
+
   db.query(sql, [role, id], (err, result) => {
     if (err)
       return res.status(500).json({ error: "Database error", details: err });
+
     res.json({ message: `User role updated to ${role}` });
   });
 });
-
 app.get("/api/available-times", (req, res) => {
   const { date, employeeId, serviceId } = req.query;
 

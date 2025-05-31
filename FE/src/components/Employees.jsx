@@ -28,51 +28,54 @@ function Employees() {
       .catch((err) => console.error("Failed to load customers:", err));
   };
 
-  const toggleEmployeeStatus = async (id) => {
+  const toggleEmployeeStatus = async (id, newRole) => {
     try {
-      const confirmed = window.confirm(
-        "Are you sure you want to remove this employee?"
-      );
-      if (!confirmed) return;
+      if (newRole === "Customer") {
+        const confirmed = window.confirm(
+          "Are you sure you want to deactivate this employee?"
+        );
+        if (!confirmed) return;
 
-      const res = await axios.get(
-        `http://localhost:5001/api/employees/${id}/appointments`
-      );
-      const hasAppointments = res.data.hasAppointments;
+        const res = await axios.get(
+          `http://localhost:5001/api/employees/${id}/appointments`
+        );
+        const hasAppointments = res.data.hasAppointments;
 
-      if (hasAppointments) {
-        alert("This employee still has appointments and cannot be removed.");
-        return;
+        if (hasAppointments) {
+          alert(
+            "This employee still has appointments and cannot be deactivated."
+          );
+          return;
+        }
       }
 
-      // ✅ Demote the employee
       await axios.put(`http://localhost:5001/api/users/${id}/role`, {
-        role: "Customer",
+        role: newRole,
       });
 
-      setMessage("Employee demoted to Customer.");
-
-      // ✅ Manually update the UI
-      const updatedEmp = employees.find((emp) => emp.id === id);
-      if (updatedEmp) {
-        updatedEmp.role = "Customer";
-        setEmployees((prev) => prev.filter((e) => e.id !== id));
-        setCustomers((prev) => [...prev, updatedEmp]);
-      }
+      setMessage(
+        newRole === "Employee"
+          ? "Employee activated."
+          : "Employee marked as inactive."
+      );
+      fetchEmployees();
+      fetchCustomers();
     } catch (err) {
-      console.error("Failed to process demotion:", err);
+      console.error("Failed to toggle employee status:", err);
     }
   };
 
-  const promoteCustomer = (id) => {
-    axios
-      .put(`http://localhost:5001/api/users/${id}/role`, { role: "Employee" })
-      .then(() => {
-        fetchEmployees();
-        fetchCustomers();
-        setMessage("User promoted to Employee.");
-      })
-      .catch((err) => console.error("Promotion failed:", err));
+  const promoteCustomer = async (id) => {
+    try {
+      await axios.put(`http://localhost:5001/api/users/${id}/role`, {
+        role: "Employee",
+      });
+      setMessage("User promoted to Employee.");
+      fetchEmployees();
+      fetchCustomers();
+    } catch (err) {
+      console.error("Promotion failed:", err);
+    }
   };
 
   return (
@@ -90,7 +93,7 @@ function Employees() {
             <th>Name</th>
             <th>Email</th>
             <th>Phone</th>
-            <th>Action</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -100,19 +103,26 @@ function Employees() {
               <td>{emp.email}</td>
               <td>{emp.phone}</td>
               <td>
-                <button
-                  onClick={() => toggleEmployeeStatus(emp.id)}
-                  style={{
-                    backgroundColor: "#dc3545",
-                    color: "#fff",
-                    border: "none",
-                    padding: "6px 12px",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Remove
-                </button>
+                <div className="status-buttons">
+                  <button
+                    className={`status-btn ${
+                      emp.role === "Employee" ? "active-green" : "inactive-gray"
+                    }`}
+                    onClick={() => toggleEmployeeStatus(emp.id, "Employee")}
+                    disabled={emp.role === "Employee"}
+                  >
+                    פעיל
+                  </button>
+                  <button
+                    className={`status-btn ${
+                      emp.role === "Customer" ? "inactive-red" : "inactive-gray"
+                    }`}
+                    onClick={() => toggleEmployeeStatus(emp.id, "Customer")}
+                    disabled={emp.role === "Customer"}
+                  >
+                    לא פעיל
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
