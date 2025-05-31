@@ -104,3 +104,36 @@
   border-radius: 4px;
   border: 1px solid #bbb;
 }
+
+/* ===== VAT Settings ===== */
+.settings-card p {
+  margin-bottom: 15px;
+  text-align: center;
+  font-weight: bold;
+  color: #444;
+}
+
+.settings-form input[type="number"] {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1em;
+}
+
+.settings-form input[type="date"] {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1em;
+}
+
+.settings-form p {
+  margin-top: 15px;
+  font-weight: bold;
+  text-align: center;
+  color: green;
+}
