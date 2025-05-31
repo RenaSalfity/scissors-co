@@ -203,21 +203,21 @@ function Appointments({ user }) {
       startY: 30,
       head: [
         [
+          "Customer", // Move customer name to the first column
           "Status",
           "Date",
           "Time",
-          "Customer",
-          ...(user.role === "Admin" ? ["Employee"] : []),
+          "Employee",
           "Service",
           "Price (ils)",
         ],
       ],
       body: appointments.map((appt) => [
+        appt.customer_name, // Display customer name in the first column
         appt.status,
         appt.date,
         appt.time,
-        appt.customer_name,
-        ...(user.role === "Admin" ? [appt.employee_name] : []),
+        appt.employee_name,
         appt.service_name,
         `${appt.price} ils`,
       ]),
@@ -348,10 +348,10 @@ function Appointments({ user }) {
       <table className="appointments-table">
         <thead>
           <tr>
+            <th>Customer</th> {/* First column now shows customer name */}
             <th>Status</th>
             <th>Date & Time</th>
-            <th>Customer</th>
-            {user.role === "Admin" && <th>Employee</th>}
+            <th>Employee</th>
             <th>Service</th>
             <th>Price</th>
           </tr>
@@ -365,6 +365,8 @@ function Appointments({ user }) {
             )
             .map((appt) => (
               <tr key={appt.id}>
+                <td>{appt.customer_name}</td>{" "}
+                {/* Customer name displayed here */}
                 <td>
                   {user.role === "Admin" || user.role === "Employee" ? (
                     <select
@@ -390,8 +392,7 @@ function Appointments({ user }) {
                 <td>
                   {appt.date} {appt.time}
                 </td>
-                <td>{appt.customer_name}</td>
-                {user.role === "Admin" && <td>{appt.employee_name}</td>}
+                <td>{appt.employee_name}</td>
                 <td>{appt.service_name}</td>
                 <td>{appt.price} ₪</td>
               </tr>
