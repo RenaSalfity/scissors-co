@@ -27,6 +27,7 @@ function Employees() {
       .then((res) => setCustomers(res.data))
       .catch((err) => console.error("Failed to load customers:", err));
   };
+
   const toggleEmployeeStatus = async (id, newRole) => {
     try {
       if (newRole === "Customer") {
@@ -35,32 +36,33 @@ function Employees() {
         );
         const { total, appointments } = res.data;
 
-        const confirmed = window.confirm(
-          `This employee has ${total} upcoming appointment(s).\n` +
-            `If you deactivate them, all will be marked as 'cancelled by business'.\n` +
-            `Do you want to continue?`
-        );
+        if (total > 0) {
+          const confirmed = window.confirm(
+            `This employee has ${total} upcoming appointment(s).\n` +
+              `If you deactivate them, all will be marked as 'cancelled by business'.\n` +
+              `Do you want to continue?`
+          );
 
-        if (!confirmed) return;
+          if (!confirmed) return;
 
-        // ❗ Cancel appointments before changing the role
-        await axios.put(
-          `http://localhost:5001/api/appointments/cancel-by-business`,
-          {
-            employeeId: id,
-            appointments,
-          }
-        );
+          await axios.put(
+            `http://localhost:5001/api/appointments/cancel-by-business`,
+            {
+              employeeId: id,
+              appointments,
+            }
+          );
 
-        // ❗ Then update user role and was_employee
+          setMessage("Employee deactivated and appointments cancelled.");
+        } else {
+          setMessage("Employee had no appointments and was deactivated.");
+        }
+
         await axios.put(`http://localhost:5001/api/users/${id}/role`, {
           role: "Customer",
           was_employee: 1,
         });
-
-        setMessage("Employee deactivated and appointments cancelled.");
       } else {
-        // Promote to employee again
         await axios.put(`http://localhost:5001/api/users/${id}/role`, {
           role: "Employee",
           was_employee: 0,
@@ -74,6 +76,7 @@ function Employees() {
       console.error("Failed to toggle employee status:", err);
     }
   };
+
   const promoteCustomer = async (id) => {
     try {
       await axios.put(`http://localhost:5001/api/users/${id}/role`, {
@@ -95,7 +98,6 @@ function Employees() {
       </button>
       {message && <p className="message">{message}</p>}
 
-      {/* Employees Table */}
       <table className="user-table">
         <thead>
           <tr>
@@ -138,7 +140,6 @@ function Employees() {
         </tbody>
       </table>
 
-      {/* Promote Existing Customers */}
       <h3>Promote Customer to Employee</h3>
       <table className="user-table">
         <thead>
@@ -163,7 +164,6 @@ function Employees() {
         </tbody>
       </table>
 
-      {/* Modal */}
       {showModal && (
         <SignUpModal
           onClose={() => setShowModal(false)}
