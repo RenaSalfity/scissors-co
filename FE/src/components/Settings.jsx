@@ -70,8 +70,9 @@ function Settings({ user }) {
         .then((res) => {
           const cleanTimes = res.data.map((entry) => ({
             ...entry,
-            start_time: entry.start_time.slice(0, 5),
-            end_time: entry.end_time.slice(0, 5),
+            start_time: entry.start_time?.slice(0, 5) || "",
+            end_time: entry.end_time?.slice(0, 5) || "",
+            closed: !entry.start_time || !entry.end_time,
           }));
           setBusinessHours(cleanTimes);
         })
@@ -125,28 +126,105 @@ function Settings({ user }) {
     );
   };
 
+  const handleDayClosedToggle = (day, closed) => {
+    setBusinessHours((prev) =>
+      prev.map((entry) =>
+        entry.day_of_week === day
+          ? {
+              ...entry,
+              closed,
+              start_time: closed ? "" : "08:00",
+              end_time: closed ? "" : "17:00",
+            }
+          : entry
+      )
+    );
+  };
+
   const handleSaveHours = async () => {
     try {
-      await axios.put(`${API_BASE}/api/business-hours`, businessHours);
+      // Find all days being closed now
+      const daysToCheck = businessHours
+        .filter((entry) => entry.closed)
+        .map((entry) => entry.day_of_week);
+
+      if (daysToCheck.length === 0) {
+        return await updateBusinessHours(); // nothing closed, save directly
+      }
+
+      // Check each day for existing appointments
+      const conflicts = [];
+
+      for (const day of daysToCheck) {
+        const res = await axios.get(
+          `${API_BASE}/api/business-hours/check-day`,
+          {
+            params: { dayOfWeek: day },
+          }
+        );
+        if (res.data.count > 0) {
+          conflicts.push({ day, count: res.data.count });
+        }
+      }
+
+      // If conflicts exist, confirm
+      if (conflicts.length > 0) {
+        const message = conflicts
+          .map((c) => `${c.count} appointments on ${c.day}`)
+          .join("\n");
+
+        const proceed = window.confirm(
+          `⚠️ Some days you marked as closed still have appointments:\n\n${message}\n\nDo you want to proceed? These appointments may need to be manually handled.`
+        );
+
+        if (!proceed) return;
+
+        for (const { day } of conflicts) {
+          try {
+            await axios.post(
+              `${API_BASE}/api/business-hours/cancel-appointments`,
+              {
+                dayOfWeek: day,
+              }
+            );
+          } catch (cancelErr) {
+            console.error(
+              `❌ Failed to cancel appointments on ${day}:`,
+              cancelErr
+            );
+            alert(`Failed to cancel appointments on ${day}`);
+          }
+        }      }
+
+      // Continue to update hours
+      await updateBusinessHours();
+    } catch (err) {
+      console.error("❌ Error checking appointments:", err);
+      alert("Something went wrong while checking appointments.");
+    }
+  };
+  const updateBusinessHours = async () => {
+    try {
+      const payload = businessHours.map(
+        ({ day_of_week, start_time, end_time, closed }) => ({
+          day_of_week,
+          start_time: closed ? "00:00:00" : start_time || "08:00:00",
+          end_time: closed ? "00:00:00" : end_time || "17:00:00",
+        })
+      );
+      await axios.put(`${API_BASE}/api/business-hours`, payload);
       alert("Business hours updated.");
     } catch (err) {
       console.error("Failed to save business hours:", err);
       alert("Error saving hours.");
     }
   };
-
   const submitSpecialHours = async () => {
     const { start_date, start_time, end_time, reason, note } = holiday;
-    if (!start_date || !reason)
-      return alert("Please select a date and reason.");
+    if (!start_date || !reason) return alert("Please select a date and reason.");
 
-    if (
-      (start_time === "" && end_time !== "") ||
-      (end_time === "" && start_time !== "")
-    ) {
-      return alert(
-        "Both start and end times must be selected, or leave both as '-- Closed --'"
-      );
+    if ((start_time === "" && end_time !== "") || (end_time === "" && start_time !== "")) {
+      return alert("Both start and end times must be selected, or leave both as '-- Closed --'");
     }
 
     try {
@@ -200,32 +278,14 @@ function Settings({ user }) {
             <label>Email (cannot change)</label>
             <input type="email" value={user.email} disabled />
             <label>Name</label>
-            <input
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleProfileChange}
-              required
-            />
+            <input type="text" name="name" value={form.name} onChange={handleProfileChange} required />
             <label>Phone</label>
             <input type="text" value={form.phone} disabled />
             <label>Old Password</label>
-            <input
-              type="password"
-              name="oldPassword"
-              value={form.oldPassword}
-              onChange={handleProfileChange}
-            />
+            <input type="password" name="oldPassword" value={form.oldPassword} onChange={handleProfileChange} />
             <label>New Password</label>
-            <input
-              type="password"
-              name="newPassword"
-              value={form.newPassword}
-              onChange={handleProfileChange}
-            />
-            <button type="submit" className="save-btn">
-              Save Changes
-            </button>
+            <input type="password" name="newPassword" value={form.newPassword} onChange={handleProfileChange} />
+            <button type="submit" className="save-btn">Save Changes</button>
             {message && <p className="settings-message">{message}</p>}
           </form>
         </div>
@@ -242,64 +302,55 @@ function Settings({ user }) {
                     <th>Day</th>
                     <th>Start Time</th>
                     <th>End Time</th>
+                    <th>Closed</th>
                   </tr>
                 </thead>
                 <tbody>
                   {days.map((day) => {
-                    const entry = businessHours.find(
-                      (e) => e.day_of_week === day
-                    ) || {
+                    const entry = businessHours.find((e) => e.day_of_week === day) || {
                       day_of_week: day,
                       start_time: "08:00",
                       end_time: "17:00",
+                      closed: false,
                     };
                     return (
                       <tr key={day}>
                         <td>{day}</td>
                         <td>
                           <select
-                            value={entry.start_time}
-                            onChange={(e) =>
-                              handleBusinessHourChange(
-                                day,
-                                "start_time",
-                                e.target.value
-                              )
-                            }
+                            value={entry.start_time || ""}
+                            onChange={(e) => handleBusinessHourChange(day, "start_time", e.target.value)}
+                            disabled={entry.closed}
                           >
                             {timeOptions.map((t) => (
-                              <option key={t} value={t}>
-                                {t}
-                              </option>
+                              <option key={t} value={t}>{t}</option>
                             ))}
                           </select>
                         </td>
                         <td>
                           <select
-                            value={entry.end_time}
-                            onChange={(e) =>
-                              handleBusinessHourChange(
-                                day,
-                                "end_time",
-                                e.target.value
-                              )
-                            }
+                            value={entry.end_time || ""}
+                            onChange={(e) => handleBusinessHourChange(day, "end_time", e.target.value)}
+                            disabled={entry.closed}
                           >
                             {timeOptions.map((t) => (
-                              <option key={t} value={t}>
-                                {t}
-                              </option>
+                              <option key={t} value={t}>{t}</option>
                             ))}
                           </select>
+                        </td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={entry.closed}
+                            onChange={(e) => handleDayClosedToggle(day, e.target.checked)}
+                          />
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              <button onClick={handleSaveHours} className="save-btn">
-                Save Business Hours
-              </button>
+              <button onClick={handleSaveHours} className="save-btn">Save Business Hours</button>
             </div>
 
             {/* Special Hours */}
