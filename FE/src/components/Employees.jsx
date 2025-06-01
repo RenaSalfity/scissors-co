@@ -31,33 +31,45 @@ function Employees() {
   const toggleEmployeeStatus = async (id, newRole) => {
     try {
       if (newRole === "Customer") {
-        const confirmed = window.confirm(
-          "Are you sure you want to deactivate this employee?"
-        );
-        if (!confirmed) return;
-
         const res = await axios.get(
           `http://localhost:5001/api/employees/${id}/appointments`
         );
-        const hasAppointments = res.data.hasAppointments;
+        const { total, appointments } = res.data;
 
-        if (hasAppointments) {
-          alert(
-            "This employee still has appointments and cannot be deactivated."
+        if (total > 0) {
+          const confirmed = window.confirm(
+            `This employee has ${total} upcoming appointment(s).\n` +
+              `If you deactivate them, all will be marked as 'cancelled by business'.\n` +
+              `Do you want to continue?`
           );
-          return;
+
+          if (!confirmed) return;
+
+          await axios.put(
+            `http://localhost:5001/api/appointments/cancel-by-business`,
+            {
+              employeeId: id,
+              appointments,
+            }
+          );
+
+          setMessage("Employee deactivated and appointments cancelled.");
+        } else {
+          setMessage("Employee had no appointments and was deactivated.");
         }
+
+        await axios.put(`http://localhost:5001/api/users/${id}/role`, {
+          role: "Customer",
+          was_employee: 1,
+        });
+      } else {
+        await axios.put(`http://localhost:5001/api/users/${id}/role`, {
+          role: "Employee",
+          was_employee: 0,
+        });
+        setMessage("Employee reactivated.");
       }
 
-      await axios.put(`http://localhost:5001/api/users/${id}/role`, {
-        role: newRole,
-      });
-
-      setMessage(
-        newRole === "Employee"
-          ? "Employee activated."
-          : "Employee marked as inactive."
-      );
       fetchEmployees();
       fetchCustomers();
     } catch (err) {
@@ -86,7 +98,6 @@ function Employees() {
       </button>
       {message && <p className="message">{message}</p>}
 
-      {/* Employees Table */}
       <table className="user-table">
         <thead>
           <tr>
@@ -129,7 +140,6 @@ function Employees() {
         </tbody>
       </table>
 
-      {/* Promote Existing Customers */}
       <h3>Promote Customer to Employee</h3>
       <table className="user-table">
         <thead>
@@ -154,7 +164,6 @@ function Employees() {
         </tbody>
       </table>
 
-      {/* Modal */}
       {showModal && (
         <SignUpModal
           onClose={() => setShowModal(false)}

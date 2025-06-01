@@ -12,6 +12,7 @@ function BookingPage({ user }) {
   const [allowedEmployeeIds, setAllowedEmployeeIds] = useState([]);
   const [filteredTimes, setFilteredTimes] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [closedDays, setClosedDays] = useState([]);
 
   const [form, setForm] = useState({
     serviceId: "",
@@ -38,7 +39,12 @@ function BookingPage({ user }) {
       });
     }
   }, []);
-
+  useEffect(() => {
+    axios
+      .get("http://localhost:5001/api/business-hours/closed-days")
+      .then((res) => setClosedDays(res.data.closedDays || []))
+      .catch((err) => console.error("❌ Failed to fetch closed days", err));
+  }, []);
   const fetchServices = () => {
     axios
       .get("http://localhost:5001/api/services")
@@ -139,6 +145,10 @@ function BookingPage({ user }) {
   };
 
   const today = new Date();
+  const isDateAllowed = (date) => {
+    const weekday = date.toLocaleString("en-US", { weekday: "long" }); // "Sunday", "Monday", etc.
+    return !closedDays.includes(weekday);
+  };
   const minDateStr = today.toISOString().split("T")[0];
 
   return (

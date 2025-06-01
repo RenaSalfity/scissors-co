@@ -178,7 +178,21 @@ app.get("/api/services", (req, res) => {
     res.json(results);
   });
 });
+app.get("/api/employees/active", (req, res) => {
+  const sql = `
+    SELECT id, name
+    FROM users
+    WHERE role = 'Employee'
+  `;
 
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch active employees:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
 // ✅ NEW: Get all employees
 app.get("/api/employees", (req, res) => {
   const sql = `
@@ -488,7 +502,22 @@ app.get("/api/available-times", (req, res) => {
     }
   });
 });
+app.get("/api/business-hours/closed-days", (req, res) => {
+  const sql = `
+    SELECT day_of_week
+    FROM working_hours
+    WHERE start_time = '00:00:00' AND end_time = '00:00:00'
+  `;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch closed days:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
 
+    const closedDays = results.map((r) => r.day_of_week);
+    res.json({ closedDays });
+  });
+});
 app.get("/api/holidays/:employeeId/disabled-dates", (req, res) => {
   const { employeeId } = req.params;
 
@@ -533,9 +562,17 @@ app.put("/api/business-hours", (req, res) => {
 
   let completed = 0;
   let hasError = false;
-
   hours.forEach(({ day_of_week, start_time, end_time }) => {
-    db.query(sql, [start_time, end_time, day_of_week], (err) => {
+    const sql = `
+      UPDATE working_hours
+      SET start_time = ?, end_time = ?
+      WHERE day_of_week = ?
+    `;
+
+    const safeStart = start_time === "" ? null : start_time;
+    const safeEnd = end_time === "" ? null : end_time;
+
+    db.query(sql, [safeStart, safeEnd, day_of_week], (err) => {
       if (err && !hasError) {
         console.error("❌ Error updating business hour:", err);
         hasError = true;
@@ -697,22 +734,32 @@ app.get("/api/appointments", (req, res) => {
 
 
 // ✅ Check if employee has any appointments before demotion
+// ✅ Step 1: Get employee's appointments (not cancelled)
 app.get("/api/employees/:id/appointments", (req, res) => {
-  const { id } = req.params;
+  const employeeId = req.params.id;
 
-  const sql =
-    "SELECT COUNT(*) AS count FROM appointments WHERE employee_id = ?";
-  db.query(sql, [id], (err, results) => {
+  const sql = `
+    SELECT a.id, a.date, a.time, a.status,
+           u.name AS customer_name, u.email AS customer_email,
+           s.name AS service_name
+    FROM appointments a
+    LEFT JOIN users u ON a.customer_id = u.id
+    LEFT JOIN services s ON a.service_id = s.id
+    WHERE a.employee_id = ? AND (a.status IS NULL OR a.status NOT LIKE 'cancelled%')
+  `;
+
+  db.query(sql, [employeeId], (err, results) => {
     if (err) {
-      console.error("Error checking employee appointments:", err);
+      console.error("❌ Failed to fetch appointments:", err);
       return res.status(500).json({ error: "Database error" });
     }
 
-    const hasAppointments = results[0].count > 0;
-    res.json({ hasAppointments });
+    res.json({
+      total: results.length,
+      appointments: results, // each has: id, date, time, customer_name, customer_email, service_name
+    });
   });
 });
-
 app.put("/api/users/:id/profile", (req, res) => {
   const { id } = req.params;
   const { name, oldPassword, newPassword } = req.body;
@@ -800,7 +847,51 @@ app.put("/api/users/:id/profile", (req, res) => {
     }
   });
 });
+app.put("/api/appointments/cancel-by-business", (req, res) => {
+  const { employeeId, appointments } = req.body;
 
+  if (!Array.isArray(appointments)) {
+    return res.status(400).json({ error: "Appointments must be an array" });
+  }
+
+  // Step 1: Cancel appointments
+  const appointmentIds = appointments.map((a) => a.id);
+  const sql = `
+    UPDATE appointments
+    SET status = 'cancelled by business'
+    WHERE id IN (?)
+  `;
+
+  db.query(sql, [appointmentIds], async (err) => {
+    if (err) {
+      console.error("❌ Failed to cancel appointments:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    // Step 2: Send email to customers
+    for (const appt of appointments) {
+      const message = `
+        Hello ${appt.customer_name},<br/><br/>
+        We regret to inform you that your appointment on <strong>${appt.date}</strong> at <strong>${appt.time}</strong>
+        for the service <strong>${appt.service_name}</strong> has been cancelled by the business.<br/><br/>
+        Sorry for the inconvenience,<br/>
+        Scissors & Co.
+      `;
+
+      await transporter.sendMail({
+        from: "scissorsco2025@gmail.com",
+        to: appt.customer_email,
+        subject: "Appointment Cancelled by Business",
+        html: message,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Appointments cancelled and notifications sent.",
+    });
+  });
+});
 // ✅ Get user details by email (used in Settings.jsx)
 app.get("/users/:email", (req, res) => {
   const email = decodeURIComponent(req.params.email);
@@ -894,7 +985,30 @@ app.get("/api/business-hours", (req, res) => {
     res.json(results);
   });
 });
+// ✅ Route: Check appointments for a specific day before marking as Closed
+app.get("/api/business-hours/check-day", (req, res) => {
+  const { dayOfWeek } = req.query;
 
+  if (!dayOfWeek) {
+    return res.status(400).json({ error: "Missing dayOfWeek" });
+  }
+
+  const sql = `
+    SELECT COUNT(*) AS count
+    FROM appointments
+    WHERE DAYNAME(date) = ?
+      AND (status IS NULL OR status NOT LIKE 'cancelled%')
+  `;
+
+  db.query(sql, [dayOfWeek], (err, results) => {
+    if (err) {
+      console.error("❌ Failed to count appointments:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    res.json({ count: results[0].count });
+  });
+});
 //if the employee was sick
 app.post("/api/holidays", upload.single("proof"), (req, res) => {
   const { employee_id, start_date, end_date, reason } = req.body;
@@ -1219,7 +1333,63 @@ app.get("/api/special-hours/conflict-check", (req, res) => {
     res.json(results);
   });
 });
+app.post("/api/business-hours/cancel-appointments", (req, res) => {
+  const { dayOfWeek } = req.body;
+  if (!dayOfWeek) return res.status(400).json({ error: "Missing dayOfWeek" });
 
+  const sql = `
+    SELECT a.id, u.email, u.name AS customer_name, s.name AS service_name, a.date, a.time
+    FROM appointments a
+    LEFT JOIN users u ON a.customer_id = u.id
+    LEFT JOIN services s ON a.service_id = s.id
+    WHERE DAYNAME(a.date) = ?
+      AND (a.status IS NULL OR a.status NOT LIKE 'cancelled%')
+  `;
+
+  db.query(sql, [dayOfWeek], (err, appointments) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+
+    if (!appointments.length) return res.json({ cancelled: 0 });
+
+    const ids = appointments.map((a) => a.id);
+    const updateSql = `
+      UPDATE appointments
+      SET status = 'cancelled by business'
+      WHERE id IN (${ids.map(() => "?").join(",")})
+    `;
+
+    db.query(updateSql, ids, async (err) => {
+      if (err)
+        return res.status(500).json({ error: "Failed to cancel appointments" });
+
+      // Send email to each customer
+      for (const appt of appointments) {
+        const msg = {
+          to: appt.email,
+          subject: "Appointment Cancelled - Business Closed",
+          text: `Dear ${appt.customer_name},
+
+Your appointment on ${appt.date} at ${appt.time} for '${appt.service_name}' has been cancelled because the business will be closed that day.
+
+We apologize for the inconvenience.
+
+Scissors & Co.`,
+        };
+
+        try {
+          await transporter.sendMail({
+            ...msg,
+            from: "scissorsco2025@gmail.com",
+          });
+        } catch (e) {
+          console.error("❌ Failed to send email to", appt.email, e);
+        }
+      }
+
+      res.json({ cancelled: appointments.length });
+    });
+  });
+});
 app.delete("/api/special-hours/cancel-appointments", (req, res) => {
   const { date, reason } = req.body;
 
