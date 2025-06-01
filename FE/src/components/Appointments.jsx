@@ -62,25 +62,22 @@ function Appointments({ user }) {
   }, [selectedCategory]);
 
   const fetchAppointments = (start = startDate, end = endDate) => {
-    const employeeParam =
-      user.role === "Employee"
-        ? `&employeeId=${user.id}`
-        : form.employeeId
-        ? `&employeeId=${form.employeeId}`
-        : "";
+    let query = `?start=${start}&end=${end}`;
 
-    const dateFilter =
-      start && end
-        ? `?start=${start}&end=${end}${employeeParam}`
-        : employeeParam
-        ? `?${employeeParam.substring(1)}`
-        : "";
+    if (user.role === "Employee") {
+      query += `&employeeId=${user.id}`;
+    } else if (user.role === "Customer") {
+      query += `&customerId=${user.id}`;
+    } else if (form.employeeId) {
+      query += `&employeeId=${form.employeeId}`;
+    }
 
     axios
-      .get(`http://localhost:5001/api/appointments${dateFilter}`)
+      .get(`http://localhost:5001/api/appointments${query}`)
       .then((res) => setAppointments(res.data))
       .catch((err) => console.error("Failed to fetch appointments:", err));
   };
+  
 
   const fetchCategories = () => {
     axios
@@ -366,7 +363,8 @@ function Appointments({ user }) {
                 <td>{appt.customer_name}</td>{" "}
                 {/* Customer name displayed here */}
                 <td>
-                  {appt.date} {appt.time} {/* Date & Time displayed here */}
+                  {new Date(appt.date).toLocaleDateString("en-GB")}{" "}
+                  {appt.time.slice(0, 5)}
                 </td>
                 <td className="status">
                   <select
@@ -394,98 +392,98 @@ function Appointments({ user }) {
         </tbody>
         <tfoot>
           <tr>
-            <td
-              colSpan={user.role === "Admin" ? 5 : 4}
-              style={{ textAlign: "right", fontWeight: "bold" }}
-            >
+            <td colSpan={5} style={{ textAlign: "right", fontWeight: "bold" }}>
               Total:
             </td>
+
             <td style={{ fontWeight: "bold" }}>₪{totalRevenue.toFixed(2)}</td>
           </tr>
         </tfoot>
       </table>
 
       {/* Booking Form */}
-      <div className="book-appointment">
-        <h2>Book an Appointment for Customer</h2>
-        <input
-          type="email"
-          name="customerEmail"
-          placeholder="Customer Email"
-          value={form.customerEmail}
-          onChange={handleFormChange}
-          onBlur={checkCustomerEmail}
-        />
-        {!emailExists && (
-          <p style={{ color: "red" }}>
-            You should{" "}
-            <button type="button" onClick={() => setShowSignUpModal(true)}>
-              sign up
-            </button>{" "}
-            first.
-          </p>
-        )}
+      {user.role !== "Customer" && (
+        <div className="book-appointment">
+          <h2>Book an Appointment for Customer</h2>
+          <input
+            type="email"
+            name="customerEmail"
+            placeholder="Customer Email"
+            value={form.customerEmail}
+            onChange={handleFormChange}
+            onBlur={checkCustomerEmail}
+          />
+          {!emailExists && (
+            <p style={{ color: "red" }}>
+              You should{" "}
+              <button type="button" onClick={() => setShowSignUpModal(true)}>
+                sign up
+              </button>{" "}
+              first.
+            </p>
+          )}
 
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-        >
-          <option value="">Select Category</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+          >
+            <option value="">Select Category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
 
-        <select
-          name="serviceId"
-          value={form.serviceId}
-          onChange={handleFormChange}
-          disabled={!selectedCategory}
-        >
-          <option value="">Select Service</option>
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} – ₪{s.price}
-            </option>
-          ))}
-        </select>
+          <select
+            name="serviceId"
+            value={form.serviceId}
+            onChange={handleFormChange}
+            disabled={!selectedCategory}
+          >
+            <option value="">Select Service</option>
+            {services.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} – ₪{s.price}
+              </option>
+            ))}
+          </select>
 
-        <input
-          type="date"
-          name="date"
-          value={form.date}
-          onChange={handleFormChange}
-          min={new Date().toISOString().split("T")[0]}
-        />
+          <input
+            type="date"
+            name="date"
+            value={form.date}
+            onChange={handleFormChange}
+            min={new Date().toISOString().split("T")[0]}
+          />
 
-        <select
-          name="employeeId"
-          value={form.employeeId}
-          onChange={handleFormChange}
-        >
-          <option value="">Choose Employee</option>
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
+          <select
+            name="employeeId"
+            value={form.employeeId}
+            onChange={handleFormChange}
+          >
+            <option value="">Choose Employee</option>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
 
-        <select name="time" value={form.time} onChange={handleFormChange}>
-          <option value="">Choose Time</option>
-          {filteredTimes.map((time, i) => (
-            <option key={i} value={time}>
-              {time}
-            </option>
-          ))}
-        </select>
+          <select name="time" value={form.time} onChange={handleFormChange}>
+            <option value="">Choose Time</option>
+            {filteredTimes.map((time, i) => (
+              <option key={i} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
 
-        <button onClick={handleCreateAppointment} disabled={!emailExists}>
-          Book
-        </button>
-      </div>
+          <button onClick={handleCreateAppointment} disabled={!emailExists}>
+            Book
+          </button>
+        </div>
+      )}
 
       {showSignUpModal && (
         <SignUpModal

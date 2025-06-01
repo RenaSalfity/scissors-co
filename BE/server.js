@@ -644,60 +644,57 @@ ORDER BY u.id, a.date DESC
 });
 
 app.get("/api/appointments", (req, res) => {
-  const { view, start, end, employeeId } = req.query;
+  const { view, start, end, employeeId, customerId } = req.query;
 
   let sql = `
-    SELECT 
-      a.id,
-      DATE_FORMAT(a.date, '%Y-%m-%d') AS date,
-      DATE_FORMAT(a.time, '%H:%i') AS time,
-      a.status,
-      c.name AS customer_name,
-      e.name AS employee_name,
-      s.name AS service_name,
-      s.price
+    SELECT a.*, 
+           u1.name AS customer_name, 
+           u2.name AS employee_name, 
+           s.name AS service_name,
+           s.price
     FROM appointments a
-    JOIN users c ON a.customer_id = c.id
-    JOIN users e ON a.employee_id = e.id
-    JOIN services s ON a.service_id = s.id
-    WHERE 1 = 1
+    LEFT JOIN users u1 ON a.customer_id = u1.id
+    LEFT JOIN users u2 ON a.employee_id = u2.id
+    LEFT JOIN services s ON a.service_id = s.id
+    WHERE 1
   `;
 
   const params = [];
 
-  // 🔹 View mode filters
-  if (view === "day") {
-    sql += " AND a.date = CURDATE()";
-  } else if (view === "week") {
-    sql += " AND a.date BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()";
-  } else if (view === "year") {
-    sql += " AND YEAR(a.date) = YEAR(CURDATE())";
-  }
-
-  // 🔹 Custom date range filter
+  // Apply date range
   if (start && end) {
     sql += " AND a.date BETWEEN ? AND ?";
     params.push(start, end);
   }
 
-  // 🔹 Filter by employee (for employees or admin filter)
+  // Filter by employee
   if (employeeId) {
     sql += " AND a.employee_id = ?";
     params.push(employeeId);
   }
 
-  // 🔹 Order by latest first
-  sql += " ORDER BY a.date DESC, a.time DESC";
+  // ✅ Filter by customer
+  if (customerId) {
+    sql += " AND a.customer_id = ?";
+    params.push(customerId);
+  }
+
+  // Optional view mode (e.g. group by week/year)
+  if (view === "week") {
+    sql += " ORDER BY a.date DESC, a.time DESC";
+  } else {
+    sql += " ORDER BY a.date ASC, a.time ASC";
+  }
 
   db.query(sql, params, (err, results) => {
     if (err) {
       console.error("❌ Error fetching appointments:", err);
       return res.status(500).json({ error: "Database error", details: err });
     }
-
     res.json(results);
   });
 });
+
 
 // ✅ Check if employee has any appointments before demotion
 app.get("/api/employees/:id/appointments", (req, res) => {

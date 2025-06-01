@@ -38,6 +38,12 @@ function Header({ user, setUser }) {
                 </li>
               )}
 
+              {user.role === "Customer" && (
+                <li>
+                  <NavLink to="/customer/appointments">My Appointments</NavLink>
+                </li>
+              )}
+
               {user.role !== "Employee" && (
                 <li>
                   <NavLink to="/contact">Contact</NavLink>

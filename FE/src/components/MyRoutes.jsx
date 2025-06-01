@@ -61,9 +61,15 @@ function MyRoutes() {
               </>
             )}
 
-            {/* ✅ Customer route */}
+            {/* ✅ Customer routes */}
             {user.role === "Customer" && (
-              <Route path="/customer" element={<Customer />} />
+              <>
+                <Route path="/customer" element={<Customer user={user} />} />
+                <Route
+                  path="/customer/appointments"
+                  element={<Appointments user={user} />}
+                />
+              </>
             )}
 
             {/* ✅ Employee routes */}

@@ -14,14 +14,6 @@
   color: #333;
 }
 
-/* Article container */
-/* .articles-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    justify-content: center;
-    } */
-
 /* Article card */
 .article-card {
   width: 300px;
@@ -68,6 +60,65 @@
 .view-button:hover {
   background-color: #0056b3;
 }
+
+/* 🔥 Upcoming appointments section */
+.upcoming-box {
+  flex: 1;
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  margin-top: 2rem;
+  text-align: center;
+  min-width: 200px;
+
+  /* 🔥 Push away from the carousel arrow */
+  margin-left: 50px;
+}
+
+.upcoming-box h2 {
+  margin-bottom: 1rem;
+  color: #444;
+  font-size: 2rem;
+}
+
+.upcoming-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.appt-card {
+  background: #fff;
+  color: #333; /* ✅ Make text visible */
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-size: 0.95rem;
+  text-align: left;
+}
+.appt-card strong {
+  color: #000;
+}
+
+
+/* 🔁 Flex layout for Customer page */
+.customer-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.service-section {
+  flex: 3;
+}
+
+/* 📱 Responsive */
 @media (max-width: 768px) {
   .articles-container {
     flex-direction: column;
@@ -82,5 +133,9 @@
   .menu {
     flex-direction: column;
     gap: 1rem;
+  }
+
+  .customer-layout {
+    flex-direction: column;
   }
 }
