@@ -98,42 +98,45 @@ function Admin() {
           </form>
         )}
 
-        <h2 className="admin-title">Manage Categories</h2>
+        {!showForm && (
+          <>
+            <h2 className="admin-title">Manage Categories</h2>
+            <div className="carousel-wrapper">
+              <button className="carousel-arrow" onClick={prev}>
+                ◀
+              </button>
 
-        <div className="carousel-wrapper">
-          <button className="carousel-arrow" onClick={prev}>
-            ◀
-          </button>
-
-          <div className="carousel">
-            {getVisibleCategories().map((category) => (
-              <div key={category.id} className="category-card">
-                {category.image ? (
-                  <img
-                    src={`http://localhost:5001/uploads/${category.image}`}
-                    alt={category.name}
-                  />
-                ) : (
-                  <div className="placeholder-image">No Image</div>
-                )}
-                <h3>{category.name}</h3>
-                <div className="actions">
-                  <Link to={`/edit-category/${category.id}`}>Edit</Link>
-                  <button onClick={() => handleDeleteCategory(category.id)}>
-                    Delete
-                  </button>
-                  <button onClick={() => handleViewServices(category)}>
-                    View
-                  </button>
-                </div>
+              <div className="carousel">
+                {getVisibleCategories().map((category) => (
+                  <div key={category.id} className="category-card">
+                    {category.image ? (
+                      <img
+                        src={`http://localhost:5001/uploads/${category.image}`}
+                        alt={category.name}
+                      />
+                    ) : (
+                      <div className="placeholder-image">No Image</div>
+                    )}
+                    <h3>{category.name}</h3>
+                    <div className="actions">
+                      <Link to={`/edit-category/${category.id}`}>Edit</Link>
+                      <button onClick={() => handleDeleteCategory(category.id)}>
+                        Delete
+                      </button>
+                      <button onClick={() => handleViewServices(category)}>
+                        View
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <button className="carousel-arrow" onClick={next}>
-            ▶
-          </button>
-        </div>
+              <button className="carousel-arrow" onClick={next}>
+                ▶
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

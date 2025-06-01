@@ -2,41 +2,79 @@
   max-width: 1200px;
   margin: 20px auto;
   padding: 20px;
-  font-family: Arial, sans-serif;
+  font-family: "Poppins", sans-serif;
   text-align: center;
 }
 
+/* 🔘 Add Category Button */
 .add-category-btn {
   padding: 10px 20px;
   background-color: #ff8000ef;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
-  margin-bottom: 15px;
+  margin-top: 20px;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background 0.2s ease;
 }
 
 .add-category-btn:hover {
-  background-color: #583a02;
+  background-color: #c96100;
 }
 
+/* 📥 Add Category Form */
 .add-category-form {
+  background: #ffffffee;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
   max-width: 400px;
-  margin: 20px auto;
+  margin: 40px auto;
+  backdrop-filter: blur(6px);
+  border: 1px solid #ffe3c1;
 }
 
-input[type="text"],
-input[type="file"] {
-  padding: 10px;
+.add-category-form input[type="text"],
+.add-category-form input[type="file"] {
+  padding: 12px 14px;
+  font-size: 1rem;
+  width: 100%;
   border: 1px solid #ccc;
-  border-radius: 5px;
+  border-radius: 10px;
+  background-color: #fdfdfd;
+  transition: border 0.3s ease;
+}
+
+.add-category-form input[type="text"]:focus,
+.add-category-form input[type="file"]:focus {
+  border-color: #ff8000;
+  outline: none;
+}
+
+.add-category-form button[type="submit"] {
+  background-color: #ff8000;
+  color: #fff;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
   width: 100%;
 }
 
+.add-category-form button[type="submit"]:hover {
+  background-color: #d06b00;
+}
+
+/* 🔤 Title */
 .admin-title {
   font-size: 1.8rem;
   font-weight: bold;
@@ -63,18 +101,37 @@ input[type="file"] {
 
 .carousel-arrow {
   font-size: 2rem;
-  background: none;
+  background: white;
   border: none;
   cursor: pointer;
-  color: #333;
-  transition: color 0.2s;
+  color: #ff8000;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  z-index: 2;
 }
 
 .carousel-arrow:hover {
-  color: #ff8000;
+  background: #ffe3c1;
+  color: #d06b00;
 }
 
-/* 🎴 Category card */
+.carousel-arrow:first-of-type {
+  position: absolute;
+  left: -50px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.carousel-arrow:last-of-type {
+  position: absolute;
+  right: -50px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* 🎴 Category Card */
 .category-card {
   flex: 0 0 300px;
   height: 320px;
@@ -115,7 +172,7 @@ input[type="file"] {
   text-align: center;
 }
 
-/*  Actions */
+/* 🎮 Actions */
 .actions {
   display: flex;
   justify-content: center;
@@ -154,7 +211,7 @@ input[type="file"] {
   background-color: #9c7149;
 }
 
-/* 📱 Responsive (optional) */
+/* 📱 Responsive */
 @media (max-width: 1000px) {
   .carousel {
     width: 640px;
@@ -171,44 +228,4 @@ input[type="file"] {
   .carousel-arrow {
     font-size: 1.5rem;
   }
-}
-.carousel-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  position: relative;
-  margin-top: 2rem;
-}
-
-.carousel-arrow {
-  font-size: 2rem;
-  background: white;
-  border: none;
-  cursor: pointer;
-  color: #ff8000;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  z-index: 2;
-}
-
-.carousel-arrow:hover {
-  background: #ffe3c1;
-  color: #d06b00;
-}
-
-.carousel-arrow:first-of-type {
-  position: absolute;
-  left: -50px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.carousel-arrow:last-of-type {
-  position: absolute;
-  right: -50px;
-  top: 50%;
-  transform: translateY(-50%);
 }
