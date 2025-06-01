@@ -367,22 +367,26 @@ function Appointments({ user }) {
                   {appt.time.slice(0, 5)}
                 </td>
                 <td className="status">
-                  <select
-                    value={editedStatuses[appt.id] ?? appt.status}
-                    onChange={(e) =>
-                      handleStatusChange(appt.id, e.target.value)
-                    }
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="done">Done</option>
-                    <option value="no show">No Show</option>
-                    <option value="cancelled by customer">
-                      Cancelled by Customer
-                    </option>
-                    <option value="cancelled by business">
-                      Cancelled by Business
-                    </option>
-                  </select>
+                  {user.role === "Admin" || user.role === "Employee" ? (
+                    <select
+                      value={editedStatuses[appt.id] ?? appt.status}
+                      onChange={(e) =>
+                        handleStatusChange(appt.id, e.target.value)
+                      }
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="done">Done</option>
+                      <option value="no show">No Show</option>
+                      <option value="cancelled by customer">
+                        Cancelled by Customer
+                      </option>
+                      <option value="cancelled by business">
+                        Cancelled by Business
+                      </option>
+                    </select>
+                  ) : (
+                    <span>{appt.status}</span>
+                  )}
                 </td>
                 <td>{appt.employee_name}</td>
                 <td>{appt.service_name}</td>
