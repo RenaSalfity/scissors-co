@@ -184,8 +184,9 @@ app.get("/api/employees", (req, res) => {
   const sql = `
     SELECT id, name, email, phone, role
     FROM users
-    WHERE was_employee = 1
+    WHERE role = 'Employee' OR was_employee = 1
   `;
+
   db.query(sql, (err, results) => {
     if (err) {
       console.error("❌ Failed to fetch employees:", err);
@@ -347,20 +348,27 @@ app.put("/api/users/:id/role", (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
-  if (!["Employee", "Customer"].includes(role)) {
+  if (!["Admin", "Customer", "Employee"].includes(role)) {
     return res.status(400).json({ error: "Invalid role" });
   }
 
-  const sql =
-    role === "Employee"
-      ? "UPDATE users SET role = ?, was_employee = 1 WHERE id = ?"
-      : "UPDATE users SET role = ? WHERE id = ?";
+  let sql = "";
+  if (role === "Employee") {
+    // Promote ➜ was_employee = 0
+    sql = "UPDATE users SET role = ?, was_employee = 0 WHERE id = ?";
+  } else if (role === "Customer") {
+    // Deactivate ➜ was_employee = 1
+    sql = "UPDATE users SET role = ?, was_employee = 1 WHERE id = ?";
+  } else {
+    sql = "UPDATE users SET role = ? WHERE id = ?";
+  }
 
   db.query(sql, [role, id], (err, result) => {
-    if (err)
-      return res.status(500).json({ error: "Database error", details: err });
-
-    res.json({ message: `User role updated to ${role}` });
+    if (err) {
+      console.error("❌ Failed to update role:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json({ success: true, message: `Role changed to ${role}` });
   });
 });
 app.get("/api/available-times", (req, res) => {
