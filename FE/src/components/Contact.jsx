@@ -16,19 +16,21 @@ function Contact() {
   }, []);
 
   return (
-    <div className="contact-container">
-      <h1 className="contact-title">Contact Us</h1>
+    <div className="main">
+      <div className="contact-container">
+        <h1 className="contact-title">Contact Us</h1>
 
-      {admins.length === 0 && <p>No admin contacts found.</p>}
+        {admins.length === 0 && <p>No admin contacts found.</p>}
 
-      {admins.map((admin) => (
-        <div key={admin.id} className="contact-text">
-          <span>{admin.name}:</span>
-          <span className="contact-name">📞{admin.phone}</span>
-        </div>
-      ))}
+        {admins.map((admin) => (
+          <div key={admin.id} className="contact-text">
+            <span>{admin.name}:</span>
+            <span className="contact-name">📞{admin.phone}</span>
+          </div>
+        ))}
 
-      <div className="contact-image">{/* Optional image here */}</div>
+        <div className="contact-image">{/* Optional image here */}</div>
+      </div>
     </div>
   );
 }

@@ -1,12 +1,14 @@
 /* Appointments.css - styled to match App.css and index.css */
 
 .appointments-screen {
-  padding: 4rem 2rem;
+  padding: 4rem 3rem;
   max-width: 1200px;
   margin: 6rem auto 8rem auto;
   background-color: #fff;
   border-radius: 1rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  margin-top: 12rem;
+  margin-bottom: 12rem;
 }
 
 .appointments-screen h1 {
@@ -52,6 +54,12 @@
   padding: 1rem;
   text-align: center;
 }
+.appointments-table tfoot td {
+  padding-top: 1rem;
+  font-weight: bold;
+  border-top: 2px solid #e6a84b;
+}
+
 
 .appointments-table th {
   background-color: #f9f9f9;
@@ -164,5 +172,18 @@
   font-weight: bold;
   font-size: 1.1rem;
   color: #5a3e1a;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+  .appointments-screen {
+    padding: 2rem 1rem;
+    /* padding-top: calc(4rem + 80px); */
+    /* padding-top: 8rem; */
+    overflow-x: auto;
+  }
+
+  .appointments-table {
+    min-width: 800px;
+  }
 }

@@ -1,33 +1,47 @@
 .edit-category-container {
   max-width: 600px;
-  margin: 50px auto;
-  padding: 20px;
+  margin: 12rem auto 5rem auto; 
+  padding: 2rem;
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
   font-family: "Poppins", sans-serif;
   text-align: center;
 }
 
 .edit-category-container h1 {
-  font-size: 2rem;
-  margin-bottom: 20px;
-  color: #333;
+  font-size: 2.4rem;
+  margin-bottom: 1.5rem;
+  color: chocolate;
 }
 
+.back-button {
+  margin-bottom: 1.5rem;
+  padding: 8px 16px;
+  background-color: #f2f2f2;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: #ddd;
+}
 
 .edit-category-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 1rem;
 }
 
-.edit-category-form input,
-.edit-category-form select {
-  padding: 10px;
+.edit-category-form input[type="text"],
+.edit-category-form input[type="file"] {
+  padding: 12px;
   font-size: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
   outline: none;
 }
 
@@ -38,23 +52,22 @@
 .edit-category-form button {
   background: #ff7f00;
   color: white;
-  padding: 10px;
-  font-size: 1.2rem;
+  padding: 12px;
+  font-size: 1.1rem;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.3s ease;
 }
 
 .edit-category-form button:hover {
-  background: #e67000;
+  background: #e66c00;
 }
-
-.cancel-button {
-  background: #ccc;
-  margin-top: 10px;
-}
-
-.cancel-button:hover {
-  background: #aaa;
+input[type="file"] {
+  font-size: 1rem;
+  padding: 6px;
+  color: #333; /* ✅ make "No file chosen" visible */
+  background-color: #f9f9f9; /* optional: light background */
+  border-radius: 4px;
+  border: 1px solid #ccc;
 }

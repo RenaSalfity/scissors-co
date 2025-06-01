@@ -40,42 +40,26 @@ function EditCategory() {
 
   return (
     <div className="edit-category-container">
-      {/* <Header /> */}
-      <div className="main">
-        <h1>Edit Category</h1>
+      <h1>Edit Category</h1>
 
-        {/* ✅ Back to Main Button */}
-        <button
-          onClick={() => navigate("/admin")}
-          className="back-button"
-          style={{
-            marginBottom: "15px",
-            padding: "8px 16px",
-            backgroundColor: "#f0f0f0",
-            border: "none",
-            borderRadius: "6px",
-            fontSize: "14px",
-            cursor: "pointer",
-          }}
-        >
-          ← Back to Main Page
-        </button>
+      <button onClick={() => navigate("/admin")} className="back-button">
+        ← Back to Main Page
+      </button>
 
-        <form onSubmit={handleUpdateCategory}>
-          <input
-            type="text"
-            placeholder="Category Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            required
-          />
-          <input type="file" onChange={(e) => setNewImage(e.target.files[0])} />
-          <button type="submit">Save Changes</button>
-        </form>
-      </div>
-      {/* <Footer /> */}
+      <form className="edit-category-form" onSubmit={handleUpdateCategory}>
+        <input
+          type="text"
+          placeholder="Category Name"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          required
+        />
+        <input type="file" onChange={(e) => setNewImage(e.target.files[0])} />
+        <button type="submit">Save Changes</button>
+      </form>
     </div>
   );
+  
 
 }
 
