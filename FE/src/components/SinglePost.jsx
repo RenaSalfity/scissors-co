@@ -40,7 +40,7 @@ function SinglePost({ user }) {
 
   const fetchEmployees = () => {
     axios
-      .get("http://localhost:5001/api/employees")
+      .get("http://localhost:5001/api/employees/active")
       .then((res) => setEmployees(res.data))
       .catch((err) => console.error("Failed to load employees:", err));
   };

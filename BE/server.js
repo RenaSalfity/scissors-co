@@ -178,7 +178,21 @@ app.get("/api/services", (req, res) => {
     res.json(results);
   });
 });
+app.get("/api/employees/active", (req, res) => {
+  const sql = `
+    SELECT id, name
+    FROM users
+    WHERE role = 'Employee'
+  `;
 
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch active employees:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
 // ✅ NEW: Get all employees
 app.get("/api/employees", (req, res) => {
   const sql = `
@@ -697,22 +711,32 @@ app.get("/api/appointments", (req, res) => {
 
 
 // ✅ Check if employee has any appointments before demotion
+// ✅ Step 1: Get employee's appointments (not cancelled)
 app.get("/api/employees/:id/appointments", (req, res) => {
-  const { id } = req.params;
+  const employeeId = req.params.id;
 
-  const sql =
-    "SELECT COUNT(*) AS count FROM appointments WHERE employee_id = ?";
-  db.query(sql, [id], (err, results) => {
+  const sql = `
+    SELECT a.id, a.date, a.time, a.status,
+           u.name AS customer_name, u.email AS customer_email,
+           s.name AS service_name
+    FROM appointments a
+    LEFT JOIN users u ON a.customer_id = u.id
+    LEFT JOIN services s ON a.service_id = s.id
+    WHERE a.employee_id = ? AND (a.status IS NULL OR a.status NOT LIKE 'cancelled%')
+  `;
+
+  db.query(sql, [employeeId], (err, results) => {
     if (err) {
-      console.error("Error checking employee appointments:", err);
+      console.error("❌ Failed to fetch appointments:", err);
       return res.status(500).json({ error: "Database error" });
     }
 
-    const hasAppointments = results[0].count > 0;
-    res.json({ hasAppointments });
+    res.json({
+      total: results.length,
+      appointments: results, // each has: id, date, time, customer_name, customer_email, service_name
+    });
   });
 });
-
 app.put("/api/users/:id/profile", (req, res) => {
   const { id } = req.params;
   const { name, oldPassword, newPassword } = req.body;
@@ -800,7 +824,51 @@ app.put("/api/users/:id/profile", (req, res) => {
     }
   });
 });
+app.put("/api/appointments/cancel-by-business", (req, res) => {
+  const { employeeId, appointments } = req.body;
 
+  if (!Array.isArray(appointments)) {
+    return res.status(400).json({ error: "Appointments must be an array" });
+  }
+
+  // Step 1: Cancel appointments
+  const appointmentIds = appointments.map((a) => a.id);
+  const sql = `
+    UPDATE appointments
+    SET status = 'cancelled by business'
+    WHERE id IN (?)
+  `;
+
+  db.query(sql, [appointmentIds], async (err) => {
+    if (err) {
+      console.error("❌ Failed to cancel appointments:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    // Step 2: Send email to customers
+    for (const appt of appointments) {
+      const message = `
+        Hello ${appt.customer_name},<br/><br/>
+        We regret to inform you that your appointment on <strong>${appt.date}</strong> at <strong>${appt.time}</strong>
+        for the service <strong>${appt.service_name}</strong> has been cancelled by the business.<br/><br/>
+        Sorry for the inconvenience,<br/>
+        Scissors & Co.
+      `;
+
+      await transporter.sendMail({
+        from: "scissorsco2025@gmail.com",
+        to: appt.customer_email,
+        subject: "Appointment Cancelled by Business",
+        html: message,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Appointments cancelled and notifications sent.",
+    });
+  });
+});
 // ✅ Get user details by email (used in Settings.jsx)
 app.get("/users/:email", (req, res) => {
   const email = decodeURIComponent(req.params.email);
