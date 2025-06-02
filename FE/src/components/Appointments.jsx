@@ -20,6 +20,8 @@ function Appointments({ user }) {
   const [exportStatus, setExportStatus] = useState("all");
   const [allowedEmployeeIds, setAllowedEmployeeIds] = useState([]);
   const [closedDays, setClosedDays] = useState([]);
+  const [specialOverride, setSpecialOverride] = useState({});
+
 
   const [filter, setFilter] = useState({
     employeeId: "",
@@ -54,13 +56,16 @@ function Appointments({ user }) {
     fetchCategories();
     fetchEmployees();
 
-    // ✅ Fetch closed days
     axios
       .get("http://localhost:5001/api/business-hours/closed-days")
-      .then((res) => setClosedDays(res.data.closedDays || []))
+      .then((res) => {
+        setClosedDays(res.data.closedDays || []);
+        setSpecialOverride(res.data.specialOverride || {});
+      })
       .catch((err) => console.error("❌ Failed to fetch closed days", err));
   }, []);
 
+  // ✅ this is a separate useEffect (NOT nested!)
   useEffect(() => {
     fetchAppointments(startDate, endDate);
   }, [filter.employeeId, startDate, endDate]);
@@ -69,11 +74,13 @@ function Appointments({ user }) {
     if (selectedCategory) fetchServicesByCategory(selectedCategory);
     else setServices([]);
   }, [selectedCategory]);
+
   useEffect(() => {
     if (filter.date && allowedEmployeeIds.length > 0) {
       fetchAvailableEmployees(filter.date);
     }
   }, [allowedEmployeeIds, filter.date]);
+  
 
   const fetchAppointments = (start = startDate, end = endDate) => {
     let query = `?start=${start}&end=${end}`;
@@ -119,16 +126,37 @@ function Appointments({ user }) {
         params: { date },
       })
       .then((res) => {
-        const filtered = res.data
-          .filter((emp) => emp.id !== user.id)
-          .filter((emp) => allowedEmployeeIds.includes(emp.id));
+        const customerEmail = bookingForm.customerEmail.trim().toLowerCase();
+        const loggedInEmail = user.email.toLowerCase();
+
+        const filtered = res.data.filter((emp) => {
+          // 🧠 Block self only if booking yourself
+          const isSelf = emp.id === user.id;
+          const isBookingSelf = customerEmail === loggedInEmail;
+          if (isSelf && isBookingSelf) return false;
+
+          // 🧠 Respect allowed employees
+          if (
+            allowedEmployeeIds.length > 0 &&
+            !allowedEmployeeIds.includes(emp.id)
+          ) {
+            return false;
+          }
+
+          return true;
+        });
+
         setEmployees(filtered);
       })
       .catch((err) => {
-        console.error("Error loading available employees:", err);
+        console.error("❌ Error loading available employees:", err);
         setEmployees([]);
       });
   };
+  
+  
+  
+  
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
     const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
@@ -397,10 +425,28 @@ function Appointments({ user }) {
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
-  const isDateAllowed = (date) => {
-    const weekday = date.toLocaleString("en-US", { weekday: "long" });
+  const isDateAllowed = (input) => {
+    const dateObj = new Date(input);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dateObj.setHours(0, 0, 0, 0);
+    const dateStr = dateObj.toISOString().split("T")[0];
+
+    if (specialOverride[dateStr]) {
+      const special = specialOverride[dateStr];
+      if (
+        special.start_time === "00:00:00" &&
+        special.end_time === "00:00:00"
+      ) {
+        return false;
+      }
+      return true;
+    }
+
+    const weekday = dateObj.toLocaleString("en-US", { weekday: "long" });
     return !closedDays.includes(weekday);
   };
+  
 
   return (
     <div className="appointments-screen">

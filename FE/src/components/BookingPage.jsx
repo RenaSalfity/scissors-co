@@ -13,7 +13,7 @@ function BookingPage({ user }) {
   const [filteredTimes, setFilteredTimes] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closedDays, setClosedDays] = useState([]);
-
+  const [specialOverride, setSpecialOverride] = useState({});
   const [form, setForm] = useState({
     serviceId: "",
     employeeId: "",
@@ -21,8 +21,13 @@ function BookingPage({ user }) {
     time: "",
   });
 
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const [minDateStr, setMinDateStr] = useState(todayStr);
+
   useEffect(() => {
     fetchServices();
+    fetchClosedDays();
 
     if (preselectedService) {
       fetchAllowedEmployees(preselectedService.id);
@@ -39,17 +44,51 @@ function BookingPage({ user }) {
       });
     }
   }, []);
-  useEffect(() => {
-    axios
-      .get("http://localhost:5001/api/business-hours/closed-days")
-      .then((res) => setClosedDays(res.data.closedDays || []))
-      .catch((err) => console.error("❌ Failed to fetch closed days", err));
-  }, []);
+
   const fetchServices = () => {
     axios
       .get("http://localhost:5001/api/services")
       .then((res) => setServices(res.data))
       .catch((err) => console.error("Error loading services:", err));
+  };
+
+  const fetchClosedDays = () => {
+    axios
+      .get("http://localhost:5001/api/business-hours/closed-days")
+      .then((res) => {
+        setClosedDays(res.data.closedDays || []);
+        setSpecialOverride(res.data.specialOverride || {});
+
+        const specialToday = res.data.specialOverride?.[todayStr];
+        let allowToday = true;
+
+        if (
+          specialToday &&
+          !specialToday.start_time &&
+          !specialToday.end_time
+        ) {
+          allowToday = false;
+        } else if (!specialToday) {
+          const todayName = today.toLocaleString("en-US", { weekday: "long" });
+          if (res.data.closedDays?.includes(todayName)) {
+            allowToday = false;
+          }
+        } else if (specialToday.end_time) {
+          const [h, m] = specialToday.end_time.split(":").map(Number);
+          const closingTime = new Date(today);
+          closingTime.setHours(h, m, 0, 0);
+          if (today >= closingTime) {
+            allowToday = false;
+          }
+        }
+
+        if (!allowToday) {
+          const nextDay = new Date();
+          nextDay.setDate(today.getDate() + 1);
+          setMinDateStr(nextDay.toISOString().split("T")[0]);
+        }
+      })
+      .catch((err) => console.error("❌ Failed to fetch closed days", err));
   };
 
   const fetchAllowedEmployees = (serviceId) => {
@@ -81,20 +120,22 @@ function BookingPage({ user }) {
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
     const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
-
     axios
       .get("http://localhost:5001/api/available-times", {
-        params: {
-          serviceId,
-          employeeId,
-          date: normalizedDate,
-        },
+        params: { serviceId, employeeId, date: normalizedDate },
       })
       .then((res) => setFilteredTimes(res.data))
       .catch((err) => {
         console.error("Failed to load times:", err);
         setFilteredTimes([]);
       });
+  };
+
+  const isTimeInPast = (dateStr, timeStr) => {
+    const [h, m] = timeStr.split(":".map(Number));
+    const selected = new Date(dateStr);
+    selected.setHours(h, m, 0, 0);
+    return selected < new Date();
   };
 
   const handleFormChange = (e) => {
@@ -107,7 +148,7 @@ function BookingPage({ user }) {
 
     if (name === "serviceId") {
       fetchAllowedEmployees(value);
-      setForm({ ...updatedForm, employeeId: "", time: "" }); // reset employee/time
+      setForm({ ...updatedForm, employeeId: "", time: "" });
       setEmployees([]);
       setFilteredTimes([]);
       return;
@@ -122,6 +163,15 @@ function BookingPage({ user }) {
     const { serviceId, employeeId, date } = updatedForm;
     if (serviceId && employeeId && date) {
       fetchAvailableTimes(serviceId, employeeId, date);
+    }
+
+    if (
+      name === "time" &&
+      updatedForm.date &&
+      isTimeInPast(updatedForm.date, value)
+    ) {
+      alert("You cannot select a past time.");
+      setForm((prev) => ({ ...prev, time: "" }));
     }
   };
 
@@ -144,17 +194,9 @@ function BookingPage({ user }) {
     }
   };
 
-  const today = new Date();
-  const isDateAllowed = (date) => {
-    const weekday = date.toLocaleString("en-US", { weekday: "long" }); // "Sunday", "Monday", etc.
-    return !closedDays.includes(weekday);
-  };
-  const minDateStr = today.toISOString().split("T")[0];
-
   return (
     <div className="booking-page">
       <h2>Book Your Appointment</h2>
-
       <form className="booking-form" onSubmit={handleSubmit}>
         {preselectedService ? (
           <select disabled className="locked-select">
