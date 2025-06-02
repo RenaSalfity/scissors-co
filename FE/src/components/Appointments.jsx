@@ -618,81 +618,85 @@ function Appointments({ user }) {
               </button>
             </p>
           )}
-
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+          <fieldset
+            disabled={!emailExists}
+            style={{ border: "none", padding: 0 }}
           >
-            <option value="">Select Category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="">Select Category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
 
-          <select
-            name="serviceId"
-            value={bookingForm.serviceId}
-            onChange={handleBookingChange}
-            disabled={!selectedCategory}
-          >
-            <option value="">Select Service</option>
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} – ₪{s.price}
-              </option>
-            ))}
-          </select>
+            <select
+              name="serviceId"
+              value={bookingForm.serviceId}
+              onChange={handleBookingChange}
+              disabled={!selectedCategory}
+            >
+              <option value="">Select Service</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} – ₪{s.price}
+                </option>
+              ))}
+            </select>
 
-          <input
-            type="date"
-            name="date"
-            value={bookingForm.date}
-            onChange={handleBookingChange}
-            min={new Date().toISOString().split("T")[0]}
-            style={{
-              backgroundColor:
+            <input
+              type="date"
+              name="date"
+              value={bookingForm.date}
+              onChange={handleBookingChange}
+              min={new Date().toISOString().split("T")[0]}
+              style={{
+                backgroundColor:
+                  bookingForm.date && !isDateAllowed(bookingForm.date)
+                    ? "#ffd2d2"
+                    : "",
+              }}
+              title={
                 bookingForm.date && !isDateAllowed(bookingForm.date)
-                  ? "#ffd2d2"
-                  : "",
-            }}
-            title={
-              bookingForm.date && !isDateAllowed(bookingForm.date)
-                ? "Business is closed on this day"
-                : ""
-            }
-          />
+                  ? "Business is closed on this day"
+                  : ""
+              }
+            />
 
-          <select
-            name="employeeId"
-            value={bookingForm.employeeId}
-            onChange={handleBookingChange}
-          >
-            <option value="">Choose Employee</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+            <select
+              name="employeeId"
+              value={bookingForm.employeeId}
+              onChange={handleBookingChange}
+            >
+              <option value="">Choose Employee</option>
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
 
-          <select
-            name="time"
-            value={bookingForm.time}
-            onChange={handleBookingChange}
-          >
-            <option value="">Choose Time</option>
-            {filteredTimes.map((time, i) => (
-              <option key={i} value={time}>
-                {time}
-              </option>
-            ))}
-          </select>
+            <select
+              name="time"
+              value={bookingForm.time}
+              onChange={handleBookingChange}
+            >
+              <option value="">Choose Time</option>
+              {filteredTimes.map((time, i) => (
+                <option key={i} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
 
-          <button onClick={handleCreateAppointment} disabled={!emailExists}>
-            Book
-          </button>
+            <button onClick={handleCreateAppointment} disabled={!emailExists}>
+              Book
+            </button>
+          </fieldset>
         </div>
       )}
 
