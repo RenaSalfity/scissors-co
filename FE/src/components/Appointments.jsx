@@ -49,12 +49,8 @@ function Appointments({ user }) {
   }, []);
 
   useEffect(() => {
-    fetchAppointments();
-  }, [form.employeeId]);
-
-  useEffect(() => {
-    fetchAppointments();
-  }, [startDate, endDate]);
+    fetchAppointments(startDate, endDate);
+  }, [form.employeeId, startDate, endDate]);
 
   useEffect(() => {
     if (selectedCategory) fetchServicesByCategory(selectedCategory);
@@ -77,7 +73,6 @@ function Appointments({ user }) {
       .then((res) => setAppointments(res.data))
       .catch((err) => console.error("Failed to fetch appointments:", err));
   };
-  
 
   const fetchCategories = () => {
     axios
