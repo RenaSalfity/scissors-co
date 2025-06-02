@@ -503,21 +503,35 @@ app.get("/api/available-times", (req, res) => {
   });
 });
 app.get("/api/business-hours/closed-days", (req, res) => {
-  const sql = `
-    SELECT day_of_week
-    FROM working_hours
+  const sqlClosed = `
+    SELECT day_of_week FROM working_hours
     WHERE start_time = '00:00:00' AND end_time = '00:00:00'
   `;
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error("❌ Failed to fetch closed days:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
 
-    const closedDays = results.map((r) => r.day_of_week);
-    res.json({ closedDays });
+  const sqlSpecial = `SELECT date, start_time, end_time FROM special_hours`;
+
+  db.query(sqlClosed, (err1, closedRes) => {
+    if (err1)
+      return res.status(500).json({ error: "DB error (working_hours)" });
+
+    db.query(sqlSpecial, (err2, specialRes) => {
+      if (err2)
+        return res.status(500).json({ error: "DB error (special_hours)" });
+
+      const closedDays = closedRes.map((r) => r.day_of_week);
+      const specialOverride = {};
+      specialRes.forEach((row) => {
+        specialOverride[row.date] = {
+          start_time: row.start_time,
+          end_time: row.end_time,
+        };
+      });
+
+      res.json({ closedDays, specialOverride });
+    });
   });
 });
+
 app.get("/api/holidays/:employeeId/disabled-dates", (req, res) => {
   const { employeeId } = req.params;
 
