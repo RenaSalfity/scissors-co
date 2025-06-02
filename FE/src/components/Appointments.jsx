@@ -17,6 +17,7 @@ function Appointments({ user }) {
   const [emailExists, setEmailExists] = useState(true);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [editedStatuses, setEditedStatuses] = useState({});
+  const [exportStatus, setExportStatus] = useState("all");
 
   const [form, setForm] = useState({
     customerEmail: "",
@@ -165,10 +166,18 @@ function Appointments({ user }) {
     fetchAppointments(defaultStartDate, defaultEndDate);
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (statusFilter = "all") => {
     const doc = new jsPDF();
+    doc.setFont("helvetica");
+    const filteredAppts = appointments
+      .filter((appt) => statusFilter === "all" || appt.status === statusFilter)
+      .sort(
+        (a, b) =>
+          new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`)
+      );
 
-    if (appointments.length === 0) {
+
+    if (filteredAppts.length === 0) {
       doc.text("No appointments found in this period.", 14, 16);
       doc.save("appointments_report.pdf");
       return;
@@ -178,7 +187,7 @@ function Appointments({ user }) {
     doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 24);
 
     const vatMap = {};
-    const uniqueDates = [...new Set(appointments.map((a) => a.date))];
+    const uniqueDates = [...new Set(filteredAppts.map((a) => a.date))];
 
     for (const date of uniqueDates) {
       try {
@@ -195,42 +204,55 @@ function Appointments({ user }) {
       startY: 30,
       head: [
         [
-          "Customer", // First column: Customer name
-          "Date & Time", // Second column: Date & Time
+          "Customer",
+          "Date & Time",
           "Status",
           "Employee",
           "Service",
-          "Price (ils)",
+          "Price (ILS)",
         ],
       ],
-      body: appointments.map((appt) => [
-        appt.customer_name, // Customer name
-        `${appt.date} ${appt.time}`, // Date & Time
+      body: filteredAppts.map((appt) => [
+        appt.customer_name,
+        `${new Date(appt.date).toLocaleDateString("en-GB")} ${appt.time?.slice(
+          0,
+          5
+        )}`,
         appt.status,
         appt.employee_name,
         appt.service_name,
-        `${appt.price} ils`,
+        `${appt.price} ILS`,
       ]),
+      styles: { cellPadding: 2, fontSize: 9 },
+      columnStyles: {
+        1: { cellWidth: 32 },
+        2: { cellWidth: 28 },
+        4: { cellWidth: 40 },
+      },
     });
 
-    const totalVATs = appointments.map((appt) => {
-      const vat = vatMap[appt.date] || 0;
-      const price = parseFloat(appt.price || 0);
-      const beforeVAT = price / (1 + vat / 100);
-      return { price, vat, beforeVAT };
-    });
+    const totalVATs = filteredAppts
+      .filter((appt) => appt.status === "done")
+      .map((appt) => {
+        const vat = vatMap[appt.date] || 0;
+        const price = parseFloat(appt.price || 0);
+        const beforeVAT = price / (1 + vat / 100);
+        return { price, vat, beforeVAT };
+      });
+
 
     const revenueSum = totalVATs.reduce((sum, r) => sum + r.price, 0);
     const totalBeforeVAT = totalVATs.reduce((sum, r) => sum + r.beforeVAT, 0);
     const vatAmount = revenueSum - totalBeforeVAT;
 
     const lastY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Total Before VAT: ${totalBeforeVAT.toFixed(2)} ils`, 14, lastY);
-    doc.text(`VAT Amount: ${vatAmount.toFixed(2)} ils`, 14, lastY + 10);
-    doc.text(`Total Revenue: ${revenueSum.toFixed(2)} ils`, 14, lastY + 20);
+    doc.text(`Total Before VAT: ${totalBeforeVAT.toFixed(2)} ILS`, 14, lastY);
+    doc.text(`VAT Amount: ${vatAmount.toFixed(2)} ILS`, 14, lastY + 10);
+    doc.text(`Total Revenue: ${revenueSum.toFixed(2)} ILS`, 14, lastY + 20);
 
     doc.save("appointments_report.pdf");
   };
+  
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -330,8 +352,24 @@ function Appointments({ user }) {
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />
+        <label>Status to Export:</label>
+        <select
+          value={exportStatus}
+          onChange={(e) => setExportStatus(e.target.value)}
+          style={{ minWidth: "180px" }}
+        >
+          <option value="all">All</option>
+          <option value="done">Done</option>
+          <option value="pending">Pending</option>
+          <option value="no show">No Show</option>
+          <option value="cancelled by customer">Cancelled by Customer</option>
+          <option value="cancelled by business">Cancelled by Business</option>
+        </select>
+
+        <button onClick={() => handleExportPDF(exportStatus)}>Export</button>
+
         <button onClick={handleResetFilters}>Reset</button>
-        <button onClick={handleExportPDF}>Export to PDF</button>
+
         {(user.role === "Admin" || user.role === "Employee") &&
           Object.keys(editedStatuses).length > 0 && (
             <button onClick={handleSaveAllStatuses}>Save All Changes</button>
@@ -350,7 +388,10 @@ function Appointments({ user }) {
           </tr>
         </thead>
         <tbody>
-          {[...appointments]
+          {appointments
+            .filter(
+              (appt) => exportStatus === "all" || appt.status === exportStatus
+            )
             .sort(
               (a, b) =>
                 new Date(`${a.date}T${a.time}`) -
@@ -358,8 +399,7 @@ function Appointments({ user }) {
             )
             .map((appt) => (
               <tr key={appt.id}>
-                <td>{appt.customer_name}</td>{" "}
-                {/* Customer name displayed here */}
+                <td>{appt.customer_name}</td>
                 <td>
                   {new Date(appt.date).toLocaleDateString("en-GB")}{" "}
                   {appt.time.slice(0, 5)}
@@ -392,6 +432,7 @@ function Appointments({ user }) {
               </tr>
             ))}
         </tbody>
+
         <tfoot>
           <tr>
             <td colSpan={5} style={{ textAlign: "right", fontWeight: "bold" }}>
