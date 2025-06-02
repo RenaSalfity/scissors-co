@@ -18,8 +18,14 @@ function Appointments({ user }) {
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [editedStatuses, setEditedStatuses] = useState({});
   const [exportStatus, setExportStatus] = useState("all");
+  const [allowedEmployeeIds, setAllowedEmployeeIds] = useState([]);
+  const [closedDays, setClosedDays] = useState([]);
 
-  const [form, setForm] = useState({
+  const [filter, setFilter] = useState({
+    employeeId: "",
+  });
+
+  const [bookingForm, setBookingForm] = useState({
     customerEmail: "",
     serviceId: "",
     employeeId: "",
@@ -47,16 +53,27 @@ function Appointments({ user }) {
     fetchAppointments(defaultStartDate, defaultEndDate);
     fetchCategories();
     fetchEmployees();
+
+    // ✅ Fetch closed days
+    axios
+      .get("http://localhost:5001/api/business-hours/closed-days")
+      .then((res) => setClosedDays(res.data.closedDays || []))
+      .catch((err) => console.error("❌ Failed to fetch closed days", err));
   }, []);
 
   useEffect(() => {
     fetchAppointments(startDate, endDate);
-  }, [form.employeeId, startDate, endDate]);
+  }, [filter.employeeId, startDate, endDate]);
 
   useEffect(() => {
     if (selectedCategory) fetchServicesByCategory(selectedCategory);
     else setServices([]);
   }, [selectedCategory]);
+  useEffect(() => {
+    if (filter.date && allowedEmployeeIds.length > 0) {
+      fetchAvailableEmployees(filter.date);
+    }
+  }, [allowedEmployeeIds, filter.date]);
 
   const fetchAppointments = (start = startDate, end = endDate) => {
     let query = `?start=${start}&end=${end}`;
@@ -65,8 +82,8 @@ function Appointments({ user }) {
       query += `&employeeId=${user.id}`;
     } else if (user.role === "Customer") {
       query += `&customerId=${user.id}`;
-    } else if (form.employeeId) {
-      query += `&employeeId=${form.employeeId}`;
+    } else if (filter.employeeId) {
+      query += `&employeeId=${filter.employeeId}`;
     }
 
     axios
@@ -102,10 +119,15 @@ function Appointments({ user }) {
         params: { date },
       })
       .then((res) => {
-        const filtered = res.data.filter((emp) => emp.id !== user.id);
+        const filtered = res.data
+          .filter((emp) => emp.id !== user.id)
+          .filter((emp) => allowedEmployeeIds.includes(emp.id));
         setEmployees(filtered);
       })
-      .catch(() => setEmployees([]));
+      .catch((err) => {
+        console.error("Error loading available employees:", err);
+        setEmployees([]);
+      });
   };
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
@@ -119,7 +141,8 @@ function Appointments({ user }) {
   };
 
   const checkCustomerEmail = () => {
-    const email = form.customerEmail.trim();
+    const email = bookingForm.customerEmail.trim();
+
     if (!email) return;
     axios
       .get(`http://localhost:5001/api/users/check-email?email=${email}`)
@@ -160,7 +183,7 @@ function Appointments({ user }) {
   };
 
   const handleResetFilters = () => {
-    setForm((prev) => ({ ...prev, employeeId: "" }));
+    setFilter({ employeeId: "" });
     setStartDate(defaultStartDate);
     setEndDate(defaultEndDate);
     setExportStatus("all");
@@ -176,7 +199,6 @@ function Appointments({ user }) {
         (a, b) =>
           new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`)
       );
-
 
     if (filteredAppts.length === 0) {
       doc.text("No appointments found in this period.", 14, 16);
@@ -241,7 +263,6 @@ function Appointments({ user }) {
         return { price, vat, beforeVAT };
       });
 
-
     const revenueSum = totalVATs.reduce((sum, r) => sum + r.price, 0);
     const totalBeforeVAT = totalVATs.reduce((sum, r) => sum + r.beforeVAT, 0);
     const vatAmount = revenueSum - totalBeforeVAT;
@@ -253,32 +274,60 @@ function Appointments({ user }) {
 
     doc.save("appointments_report.pdf");
   };
-  
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    const updatedForm = { ...form, [name]: value };
-    if (name === "date" && value) fetchAvailableEmployees(value);
+    const updatedForm = { ...filter, [name]: value };
+
+    if (name === "serviceId") {
+      fetchAllowedEmployees(value); // 🔥 FIX: call it here
+      setFilteredTimes([]);
+      setEmployees([]); // clear employees so they re-fetch on next date
+    }
+
+    if (name === "date" && value) {
+      const testDate = new Date(value);
+      if (!isDateAllowed(testDate)) {
+        alert("Business is closed on this day.");
+        return;
+      }
+      fetchAvailableEmployees(value);
+    }
+
     if (
       (name === "employeeId" && updatedForm.serviceId && updatedForm.date) ||
       (name === "serviceId" && updatedForm.employeeId && updatedForm.date)
     ) {
+      const testDate = new Date(updatedForm.date);
+      if (!isDateAllowed(testDate)) return;
+
       fetchAvailableTimes(
         updatedForm.serviceId,
         updatedForm.employeeId,
         updatedForm.date
       );
     }
-    setForm(updatedForm);
+
+    setFilter(updatedForm);
+  };
+
+  const fetchAllowedEmployees = (serviceId) => {
+    axios
+      .get(`http://localhost:5001/api/service-employees/${serviceId}`)
+      .then((res) => setAllowedEmployeeIds(res.data.employeeIds || []))
+      .catch((err) => {
+        console.error("Error fetching assigned employees:", err);
+        setAllowedEmployeeIds([]);
+      });
   };
 
   const handleCreateAppointment = () => {
     const payload = {
-      customerEmail: form.customerEmail.trim(),
-      serviceId: form.serviceId,
-      employeeId: form.employeeId,
-      date: form.date,
-      time: form.time,
+      customerEmail: bookingForm.customerEmail.trim(),
+      serviceId: bookingForm.serviceId,
+      employeeId: bookingForm.employeeId,
+      date: bookingForm.date,
+      time: bookingForm.time,
     };
 
     if (Object.values(payload).some((v) => !v)) {
@@ -291,7 +340,7 @@ function Appointments({ user }) {
       .then(() => {
         alert("Appointment booked successfully!");
         fetchAppointments();
-        setForm({
+        setBookingForm({
           customerEmail: "",
           serviceId: "",
           employeeId: "",
@@ -305,19 +354,53 @@ function Appointments({ user }) {
       })
       .catch(() => alert("Booking failed."));
   };
+  const handleBookingChange = (e) => {
+    const { name, value } = e.target;
+    const updated = { ...bookingForm, [name]: value };
+
+    if (name === "serviceId") {
+      fetchAllowedEmployees(value);
+      setFilteredTimes([]);
+      setEmployees([]);
+    }
+
+    if (name === "date" && value) {
+      const testDate = new Date(value);
+      if (!isDateAllowed(testDate)) {
+        alert("Business is closed on this day.");
+        return;
+      }
+      fetchAvailableEmployees(value);
+    }
+
+    if (
+      (name === "employeeId" && updated.serviceId && updated.date) ||
+      (name === "serviceId" && updated.employeeId && updated.date)
+    ) {
+      const testDate = new Date(updated.date);
+      if (!isDateAllowed(testDate)) return;
+
+      fetchAvailableTimes(updated.serviceId, updated.employeeId, updated.date);
+    }
+
+    setBookingForm(updated);
+  };
 
   const totalRevenue = appointments.reduce((sum, appt) => {
     if (appt.status !== "done") return sum;
     const price = parseFloat(appt.price);
     return sum + (isNaN(price) ? 0 : price);
   }, 0);
-  
+
   const statusCounts = appointments.reduce((acc, appt) => {
     const status = appt.status || "unknown";
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
-  
+  const isDateAllowed = (date) => {
+    const weekday = date.toLocaleString("en-US", { weekday: "long" });
+    return !closedDays.includes(weekday);
+  };
 
   return (
     <div className="appointments-screen">
@@ -339,10 +422,10 @@ function Appointments({ user }) {
           <>
             <label>Filter by Employee:</label>
             <select
-              value={form.employeeId}
+              value={filter.employeeId}
               name="employeeId"
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, employeeId: e.target.value }))
+                setFilter((prev) => ({ ...prev, employeeId: e.target.value }))
               }
             >
               <option value="">All Employees</option>
@@ -393,14 +476,15 @@ function Appointments({ user }) {
       <table className="appointments-table">
         <thead>
           <tr>
-            <th>Customer</th> {/* First column now shows customer name */}
-            <th>Date & Time</th> {/* Second column now shows date & time */}
+            <th>Customer</th>
+            <th>Date & Time</th>
             <th>Status</th>
             <th>Employee</th>
             <th>Service</th>
             <th>Price</th>
           </tr>
         </thead>
+
         <tbody>
           {appointments
             .filter(
@@ -470,21 +554,22 @@ function Appointments({ user }) {
       {user.role !== "Customer" && (
         <div className="book-appointment">
           <h2>Book an Appointment for Customer</h2>
+
           <input
             type="email"
             name="customerEmail"
             placeholder="Customer Email"
-            value={form.customerEmail}
-            onChange={handleFormChange}
+            value={bookingForm.customerEmail}
+            onChange={handleBookingChange}
             onBlur={checkCustomerEmail}
           />
+
           {!emailExists && (
             <p style={{ color: "red" }}>
-              You should{" "}
+              You should sign up first!{" "}
               <button type="button" onClick={() => setShowSignUpModal(true)}>
                 sign up
-              </button>{" "}
-              first.
+              </button>
             </p>
           )}
 
@@ -502,8 +587,8 @@ function Appointments({ user }) {
 
           <select
             name="serviceId"
-            value={form.serviceId}
-            onChange={handleFormChange}
+            value={bookingForm.serviceId}
+            onChange={handleBookingChange}
             disabled={!selectedCategory}
           >
             <option value="">Select Service</option>
@@ -517,15 +602,26 @@ function Appointments({ user }) {
           <input
             type="date"
             name="date"
-            value={form.date}
-            onChange={handleFormChange}
+            value={bookingForm.date}
+            onChange={handleBookingChange}
             min={new Date().toISOString().split("T")[0]}
+            style={{
+              backgroundColor:
+                bookingForm.date && !isDateAllowed(bookingForm.date)
+                  ? "#ffd2d2"
+                  : "",
+            }}
+            title={
+              bookingForm.date && !isDateAllowed(bookingForm.date)
+                ? "Business is closed on this day"
+                : ""
+            }
           />
 
           <select
             name="employeeId"
-            value={form.employeeId}
-            onChange={handleFormChange}
+            value={bookingForm.employeeId}
+            onChange={handleBookingChange}
           >
             <option value="">Choose Employee</option>
             {employees.map((e) => (
@@ -535,7 +631,11 @@ function Appointments({ user }) {
             ))}
           </select>
 
-          <select name="time" value={form.time} onChange={handleFormChange}>
+          <select
+            name="time"
+            value={bookingForm.time}
+            onChange={handleBookingChange}
+          >
             <option value="">Choose Time</option>
             {filteredTimes.map((time, i) => (
               <option key={i} value={time}>
