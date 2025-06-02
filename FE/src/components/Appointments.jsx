@@ -163,6 +163,7 @@ function Appointments({ user }) {
     setForm((prev) => ({ ...prev, employeeId: "" }));
     setStartDate(defaultStartDate);
     setEndDate(defaultEndDate);
+    setExportStatus("all");
     fetchAppointments(defaultStartDate, defaultEndDate);
   };
 
@@ -311,14 +312,27 @@ function Appointments({ user }) {
     return sum + (isNaN(price) ? 0 : price);
   }, 0);
   
+  const statusCounts = appointments.reduce((acc, appt) => {
+    const status = appt.status || "unknown";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
   
 
   return (
     <div className="appointments-screen">
       <h1>Manage Appointments</h1>
+
       <p className="date-range-label">
         📅 Showing appointments from {startDate} to {endDate}
       </p>
+      <div className="status-summary">
+        🟡 Pending: {statusCounts["pending"] || 0} &nbsp;&nbsp; ✅ Done:{" "}
+        {statusCounts["done"] || 0} &nbsp;&nbsp; ❌ Cancelled:{" "}
+        {(statusCounts["cancelled by customer"] || 0) +
+          (statusCounts["cancelled by business"] || 0)}{" "}
+        &nbsp;&nbsp; ⛔ No Show: {statusCounts["no show"] || 0}
+      </div>
 
       <div className="filters">
         {user.role === "Admin" && (

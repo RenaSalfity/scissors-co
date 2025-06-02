@@ -187,3 +187,11 @@
     min-width: 800px;
   }
 }
+
+.status-summary {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+  color: #5a3e1a; /* dark brown for contrast */
+  font-weight: bold;
+}
