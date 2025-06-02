@@ -1,18 +1,24 @@
 import React, { useState } from "react";
 import axios from "axios";
 import "../assets/styles/SignUpModal.css";
+import { useEffect } from "react";
 
-function SignUpModal({ onClose, onSuccess }) {
+function SignUpModal({ onClose, onSuccess, prefillEmail }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // ✨ Verification states
   const [codeSent, setCodeSent] = useState(false);
   const [verifyCode, setVerifyCode] = useState("");
   const [isVerified, setIsVerified] = useState(false);
+
+  useEffect(() => {
+    if (prefillEmail) {
+      setEmail(prefillEmail.trim().toLowerCase());
+    }
+  }, [prefillEmail]);
 
   const validateInput = () => {
     if (!/^[A-Za-z]{2,}$/.test(name)) {
@@ -38,32 +44,37 @@ function SignUpModal({ onClose, onSuccess }) {
     }
 
     try {
-      const res = await axios.post("http://localhost:5001/api/send-code", {
-        email,
+      const res = await fetch("http://localhost:5001/api/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
+
+      const data = await res.json();
+      if (!res.ok) return setError(data.error || "Failed to send code");
+
       setCodeSent(true);
       alert("Verification code sent to your email.");
     } catch (err) {
-      console.error("Send code error:", err);
       setError("Failed to send code.");
     }
   };
 
   const verifyEnteredCode = async () => {
     try {
-      const res = await axios.post("http://localhost:5001/api/verify-code", {
-        email,
-        code: verifyCode,
+      const res = await fetch("http://localhost:5001/api/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: verifyCode }),
       });
 
-      if (res.data.verified) {
-        setIsVerified(true);
-        alert("Email verified! You can now sign up.");
-      } else {
-        setError("Incorrect verification code.");
-      }
+      const data = await res.json();
+      if (!res.ok) return setError(data.error || "Invalid code");
+
+      setIsVerified(true);
+      alert("Email verified! Now you can finish signing up.");
     } catch (err) {
-      setError("Verification failed.");
+      setError("Failed to verify code.");
     }
   };
 
@@ -110,7 +121,7 @@ function SignUpModal({ onClose, onSuccess }) {
           ×
         </button>
         <h2>Sign Up</h2>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off">
           <input
             type="text"
             placeholder="Name"
@@ -127,14 +138,12 @@ function SignUpModal({ onClose, onSuccess }) {
           />
           <input
             type="email"
-            placeholder="Enter your email"
+            placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            disabled
             required
-            disabled={codeSent}
           />
 
-          {/* Email verification */}
           {!isVerified && (
             <>
               <button type="button" onClick={sendVerificationCode}>
@@ -161,6 +170,7 @@ function SignUpModal({ onClose, onSuccess }) {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
             required
           />
           {error && <p className="error">{error}</p>}

@@ -702,6 +702,7 @@ function Appointments({ user }) {
 
       {showSignUpModal && (
         <SignUpModal
+          prefillEmail={bookingForm.customerEmail}
           onClose={() => setShowSignUpModal(false)}
           onSuccess={checkCustomerEmail}
         />
