@@ -284,9 +284,12 @@ function Appointments({ user }) {
   };
 
   const totalRevenue = appointments.reduce((sum, appt) => {
+    if (appt.status !== "done") return sum;
     const price = parseFloat(appt.price);
     return sum + (isNaN(price) ? 0 : price);
   }, 0);
+  
+  
 
   return (
     <div className="appointments-screen">
@@ -393,8 +396,16 @@ function Appointments({ user }) {
           <tr>
             <td colSpan={5} style={{ textAlign: "right", fontWeight: "bold" }}>
               Total:
+              <div
+                style={{
+                  fontWeight: "normal",
+                  fontSize: "0.95rem",
+                  color: "#666",
+                }}
+              >
+                (Only appointments marked as "done" are included)
+              </div>
             </td>
-
             <td style={{ fontWeight: "bold" }}>₪{totalRevenue.toFixed(2)}</td>
           </tr>
         </tfoot>
