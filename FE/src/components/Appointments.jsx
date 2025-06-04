@@ -495,19 +495,20 @@ function Appointments({ user }) {
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />
-        <label>Status to Export:</label>
-        <select
-          value={exportStatus}
-          onChange={(e) => setExportStatus(e.target.value)}
-          style={{ minWidth: "180px" }}
-        >
-          <option value="all">All</option>
-          <option value="done">Done</option>
-          <option value="pending">Pending</option>
-          <option value="no show">No Show</option>
-          <option value="cancelled by customer">Cancelled by Customer</option>
-          <option value="cancelled by business">Cancelled by Business</option>
-        </select>
+        <div className="export-filter-inline">
+          <label>Status to Export:</label>
+          <select
+            value={exportStatus}
+            onChange={(e) => setExportStatus(e.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="done">Done</option>
+            <option value="pending">Pending</option>
+            <option value="no show">No Show</option>
+            <option value="cancelled by customer">Cancelled by Customer</option>
+            <option value="cancelled by business">Cancelled by Business</option>
+          </select>
+        </div>
 
         <button onClick={() => handleExportPDF(exportStatus)}>Export</button>
 

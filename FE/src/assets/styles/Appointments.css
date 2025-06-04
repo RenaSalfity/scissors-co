@@ -195,3 +195,9 @@
   color: #5a3e1a; /* dark brown for contrast */
   font-weight: bold;
 }
+
+.export-filter-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
