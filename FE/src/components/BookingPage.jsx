@@ -2,11 +2,12 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation } from "react-router-dom";
 import "../assets/styles/BookingPage.css";
+import { useNavigate } from "react-router-dom";
 
 function BookingPage({ user }) {
   const location = useLocation();
   const preselectedService = location.state?.service || null;
-
+  const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allowedEmployeeIds, setAllowedEmployeeIds] = useState([]);
@@ -197,6 +198,17 @@ function BookingPage({ user }) {
   return (
     <div className="booking-page">
       <h2>Book Your Appointment</h2>
+      <button
+        type="button"
+        className="back-btn"
+        onClick={() =>
+          navigate(`/post/${preselectedService.category_id}`, {
+            state: { post: preselectedService },
+          })
+        }
+      >
+        ← Back to Services
+      </button>
       <form className="booking-form" onSubmit={handleSubmit}>
         {preselectedService ? (
           <select disabled className="locked-select">
