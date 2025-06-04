@@ -274,13 +274,29 @@ function Appointments({ user }) {
         appt.service_name,
         `${appt.price} ILS`,
       ]),
-      styles: { cellPadding: 2, fontSize: 9 },
+      styles: {
+        cellPadding: 2,
+        fontSize: 9,
+        overflow: "linebreak", // ⬅️ enables word wrapping
+      },
       columnStyles: {
-        1: { cellWidth: 32 },
+        1: { cellWidth: 36 },
         2: { cellWidth: 28 },
+        3: { cellWidth: 32 },
         4: { cellWidth: 40 },
+        5: { cellWidth: 28 },
+      },
+      margin: { top: 30, bottom: 30 }, // ⬅️ adds vertical margins
+      didDrawPage: (data) => {
+        doc.setFontSize(10);
+        doc.text(
+          `Page ${doc.internal.getNumberOfPages()}`,
+          data.settings.margin.left,
+          doc.internal.pageSize.height - 10
+        );
       },
     });
+    
 
     const totalVATs = filteredAppts
       .filter((appt) => appt.status === "done")
