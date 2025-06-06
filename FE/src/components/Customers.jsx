@@ -5,80 +5,108 @@ import "../assets/styles/Customers.css";
 function Customers() {
   const [customers, setCustomers] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [range, setRange] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
+  const toLocalISOString = (date) => {
+    const offset = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - offset * 60000);
+    return local.toISOString().split("T")[0];
+  };
+
+  // Set default start and end date to full June
   useEffect(() => {
-    fetchCustomers();
+    const now = new Date();
+    const year = now.getFullYear();
+    const juneStart = new Date(`${year}-06-01`);
+    const juneEnd = new Date(year, 6, 0); // June = month 5, so 6 gives last day
+
+    const startStr = toLocalISOString(juneStart);
+    const endStr = toLocalISOString(juneEnd);
+    setStartDate(startStr);
+    setEndDate(endStr);
+
+    setTimeout(() => fetchCustomers(startStr, endStr), 0);
   }, []);
 
-  const fetchCustomers = () => {
+  useEffect(() => {
+    if (startDate && endDate) {
+      fetchCustomers(startDate, endDate);
+    }
+  }, [startDate, endDate]);
+
+  const fetchCustomers = (from, to) => {
     axios
-      // .get("http://localhost:5001/api/customers/summary")
-
       .get("http://localhost:5001/api/customers/details")
-
       .then((res) => {
-        setCustomers(res.data);
-        setFiltered(res.data);
+        const fromDate = new Date(from);
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59);
+
+        const processed = res.data.map((c) => {
+          const appts = (c.appointments || []).filter((a) => {
+            const d = new Date(a.date);
+            const status = (a.status || "").trim().toLowerCase();
+            return d >= fromDate && d <= toDate && status === "done";
+          });
+
+          const totalAppointments = appts.length;
+
+          const totalSpent = appts.reduce((sum, a) => {
+            const price = parseFloat(a.price);
+            return sum + (isNaN(price) ? 0 : price);
+          }, 0);
+
+          const serviceCount = {};
+          appts.forEach((a) => {
+            if (a.service) {
+              serviceCount[a.service] = (serviceCount[a.service] || 0) + 1;
+            }
+          });
+
+          const fav = Object.entries(serviceCount).sort(
+            (a, b) => b[1] - a[1]
+          )[0];
+
+          return {
+            ...c,
+            totalAppointments,
+            totalSpent,
+            favoriteService: fav ? fav[0] : "-",
+          };
+        });
+
+        setCustomers(processed);
+        setFiltered(processed);
       })
       .catch((err) => console.error("Failed to load customer summary:", err));
   };
 
-  const handleFilter = (value) => {
-    setRange(value);
-    if (value === "all") {
-      setFiltered(customers);
-    } else {
-      const now = new Date();
-      const from = new Date();
-      if (value === "week") from.setDate(now.getDate() - 7);
-      else if (value === "month") from.setMonth(now.getMonth() - 1);
-      else if (value === "year") from.setFullYear(now.getFullYear() - 1);
-
-      const filteredData = customers.map((c) => {
-        const filteredAppts = c.appointments.filter((a) => {
-          const d = new Date(a.date);
-          return d >= from && d <= now;
-        });
-
-        const totalSpent = filteredAppts.reduce((sum, a) => sum + a.price, 0);
-        const favoriteService = filteredAppts.reduce((acc, curr) => {
-          acc[curr.service] = (acc[curr.service] || 0) + 1;
-          return acc;
-        }, {});
-        const fav = Object.entries(favoriteService).sort(
-          (a, b) => b[1] - a[1]
-        )[0];
-
-        return {
-          ...c,
-          totalSpent,
-          favoriteService: fav ? fav[0] : "-",
-          totalAppointments: filteredAppts.length,
-        };
-      });
-
-      setFiltered(filteredData);
-    }
-  };
-
   const exportToPDF = () => {
-    alert("PDF export not implemented in this version.");
+    alert("PDF export not implemented yet.");
   };
 
   return (
     <div className="customers-container">
-      <h2>Customers</h2>
+      <h2>Customers Summary</h2>
+
+      <p className="date-range-label">
+        📅 Showing from {startDate} to {endDate}
+      </p>
 
       <div className="filter-bar">
-        <label>Filter: </label>
-        <select value={range} onChange={(e) => handleFilter(e.target.value)}>
-          <option value="all">All Time</option>
-          <option value="week">Past Week</option>
-          <option value="month">Past Month</option>
-          <option value="year">Past Year</option>
-        </select>
-
+        <label>Start Date:</label>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+        />
+        <label>End Date:</label>
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+        />
         <button onClick={exportToPDF}>Export to PDF</button>
       </div>
 
@@ -97,13 +125,9 @@ function Customers() {
             <tr key={c.id}>
               <td>{c.name}</td>
               <td>{c.email}</td>
-              <td>{c.totalAppointments || c.appointments?.length || 0}</td>
-              <td>{c.favoriteService || "-"}</td>
-              <td>
-                {c.totalSpent != null
-                  ? c.totalSpent
-                  : c.appointments?.reduce((sum, a) => sum + a.price, 0)}
-              </td>
+              <td>{c.totalAppointments}</td>
+              <td>{c.favoriteService}</td>
+              <td>₪{c.totalSpent.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
