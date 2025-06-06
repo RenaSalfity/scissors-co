@@ -72,8 +72,6 @@
   margin-top: 2rem;
   text-align: center;
   min-width: 200px;
-
-  /* 🔥 Push away from the carousel arrow */
   margin-left: 50px;
 }
 
@@ -91,14 +89,19 @@
 
 .appt-card {
   background: #fff;
-  color: #333; /* ✅ Make text visible */
+  color: #333;
   padding: 0.75rem;
   margin-bottom: 0.75rem;
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   font-size: 0.95rem;
   text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
+
+
 .appt-card strong {
   color: #000;
 }
@@ -138,4 +141,67 @@
   .customer-layout {
     flex-direction: column;
   }
+
+  .appt-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cancel-btn {
+    align-self: flex-end;
+    margin-top: 6px;
+  }
+}
+.appt-card-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.appt-service {
+  font-weight: bold;
+  color: #000;
+}
+
+.cancel-link {
+  background: none;
+  color: #d32f2f;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.cancel-link:hover {
+  color: #b71c1c;
+}
+
+.appt-time {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.appt-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cancel-inline-btn {
+  background-color: #eee;
+  border: none;
+  color: #444;
+  padding: 2px 6px;
+  font-size: 1.0rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.cancel-inline-btn:hover {
+  background-color: #f44336;
+  color: white;
 }
