@@ -16,7 +16,10 @@ function Customer({ user }) {
 
   useEffect(() => {
     if (!user) return;
+    fetchAppointments();
+  }, [user]);
 
+  const fetchAppointments = () => {
     axios
       .get(`http://localhost:5001/api/appointments?customerId=${user.id}`)
       .then((res) => {
@@ -25,10 +28,9 @@ function Customer({ user }) {
           .filter((appt) => {
             if (appt.status?.toLowerCase() !== "pending") return false;
 
-            // Get the full datetime object
             const [hour, minute] = appt.time.split(":").map(Number);
             const apptDate = new Date(appt.date);
-            apptDate.setHours(hour, minute, 0, 0); // Set precise time
+            apptDate.setHours(hour, minute, 0, 0);
 
             return apptDate > now;
           })
@@ -41,7 +43,28 @@ function Customer({ user }) {
         setAppointments(upcoming);
       })
       .catch((err) => console.error("Error fetching appointments:", err));
-  }, [user]);
+  };
+
+  const handleCancelAppointment = async (appointmentId) => {
+    const confirmCancel = window.confirm(
+      "Are you sure you want to cancel this appointment?"
+    );
+    if (!confirmCancel) return;
+
+    try {
+      await axios.put(
+        `http://localhost:5001/api/appointments/${appointmentId}/cancel-by-customer`
+      );
+
+      // Refresh the full list instead of filtering manually
+      fetchAppointments();
+
+      alert("Appointment cancelled successfully.");
+    } catch (err) {
+      console.error("Cancellation failed:", err);
+      alert("Failed to cancel appointment. Please try again.");
+    }
+  };
 
   if (!user) return null;
 
@@ -65,10 +88,16 @@ function Customer({ user }) {
             <ul className="upcoming-list">
               {appointments.map((appt) => (
                 <li key={appt.id} className="appt-card">
-                  <div>
-                    <strong>{appt.service_name}</strong>
+                  <div className="appt-card-row">
+                    <span className="appt-service">{appt.service_name}</span>
+                    <button
+                      className="cancel-inline-btn"
+                      onClick={() => handleCancelAppointment(appt.id)}
+                    >
+                      Cancel Appointment.
+                    </button>
                   </div>
-                  <div>
+                  <div className="appt-time">
                     {new Date(appt.date).toLocaleDateString("en-GB")} –{" "}
                     {appt.time.slice(0, 5)}
                   </div>
