@@ -414,19 +414,19 @@ app.get("/api/available-times", (req, res) => {
     const serviceDuration = Number(result[0].time) || fallbackDuration;
     console.log("⏱️ Service Duration:", serviceDuration);
 
-    // Step 2: Check for special hours first
+    // Step 2: Check for special hours
     const specialQuery =
       "SELECT start_time, end_time FROM special_hours WHERE date = ?";
     db.query(specialQuery, [date], (err2, special) => {
       if (err2) {
-        console.error("❌ Error checking special hours:", err2);
+        console.error("Error checking special hours:", err2);
         return res.status(500).json({ error: "Error checking special hours" });
       }
 
       if (special.length > 0) {
         // Check if salon is closed that day
         if (!special[0].start_time || !special[0].end_time) {
-          console.log("📛 Closed on this date due to special hours.");
+          console.log("Closed on this date due to special hours.");
           return res.json([]);
         }
 
@@ -745,7 +745,6 @@ app.get("/api/appointments", (req, res) => {
     res.json(results);
   });
 });
-
 
 // ✅ Check if employee has any appointments before demotion
 // ✅ Step 1: Get employee's appointments (not cancelled)
@@ -1562,7 +1561,6 @@ app.post("/api/password-reset/update", (req, res) => {
   });
 });
 
-
 //get current vat
 app.get("/api/vat/current", (req, res) => {
   const sql = `
@@ -1612,5 +1610,211 @@ app.get("/api/vat/by-date", (req, res) => {
   db.query(sql, [date], (err, results) => {
     if (err) return res.status(500).json({ error: "Database error" });
     res.json(results[0]);
+  });
+});
+
+app.get("/api/customers/summary-range", (req, res) => {
+  const { start, end } = req.query;
+
+  if (!start || !end) {
+    return res.status(400).json({ error: "Missing date range" });
+  }
+
+  const sql = `
+    SELECT 
+      u.id, u.name, u.email, u.role,
+      a.date, a.time, s.name AS service, s.price, a.status
+    FROM users u
+    JOIN appointments a ON u.id = a.customer_id
+    JOIN services s ON a.service_id = s.id
+    WHERE a.date BETWEEN ? AND ?
+    ORDER BY u.id, a.date DESC
+  `;
+
+  db.query(sql, [start, end], (err, results) => {
+    if (err) {
+      console.error("❌ DB error in /customers/summary-range:", err);
+      return res.status(500).json({ error: "Database error", details: err });
+    }
+
+    const map = {};
+    results.forEach((row) => {
+      if (!map[row.id]) {
+        map[row.id] = {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          role: row.role,
+          appointments: [],
+        };
+      }
+
+      map[row.id].appointments.push({
+        date: row.date,
+        time: row.time,
+        service: row.service,
+        price: row.price,
+        status: row.status, // ✅ Include status so frontend can check it
+      });
+    });
+
+    res.json(Object.values(map));
+  });
+});
+
+app.get("/api/customers/all", (req, res) => {
+  const sql = `
+    SELECT id, name, email
+    FROM users
+    WHERE role = 'Customer'
+  `;
+  db.query(sql, (err, results) => {
+    if (err)
+      return res.status(500).json({ error: "Database error", details: err });
+    res.json(results);
+  });
+});
+
+// ✅ Get sick leaves needing proof for current month
+app.get("/api/holidays/pending-proof/:employeeId", (req, res) => {
+  const { employeeId } = req.params;
+
+  const sql = `
+    SELECT id, start_date, end_date, submitted_at
+    FROM holidays
+    WHERE employee_id = ?
+      AND reason = 'Sick'
+      AND proof_file IS NULL
+      AND updated_to_time_off = 0
+      AND MONTH(submitted_at) = MONTH(CURDATE())
+      AND YEAR(submitted_at) = YEAR(CURDATE())
+  `;
+
+  db.query(sql, [employeeId], (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch pending sick proofs:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
+
+app.get("/api/holidays/pending-review", (req, res) => {
+  const sql = `
+    SELECT h.id, h.start_date, h.end_date, h.employee_id, h.proof_file, u.name AS employee_name
+    FROM holidays h
+    JOIN users u ON h.employee_id = u.id
+    WHERE h.reason = 'Sick' AND h.proof_file IS NOT NULL AND h.proof_status IS NULL
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ Failed to fetch pending sick proof reviews:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    res.json(results);
+  });
+});
+
+app.put("/api/holidays/:id/review", (req, res) => {
+  const { id } = req.params;
+  const { decision, comment } = req.body;
+
+  if (!["approved", "rejected"].includes(decision)) {
+    return res.status(400).json({ error: "Invalid decision" });
+  }
+
+  const sql = `
+    UPDATE holidays
+    SET proof_status = ?, proof_comment = ?, reviewed_at = NOW()
+    WHERE id = ?
+  `;
+
+  db.query(sql, [decision, comment || null, id], (err, result) => {
+    if (err) {
+      console.error("❌ Failed to update sick note review:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    res.json({
+      message: `Sick note ${decision}`,
+      affected: result.affectedRows,
+    });
+  });
+});
+
+
+//cancel appointments
+app.put("/api/appointments/:id/cancel-by-customer", (req, res) => {
+  const appointmentId = req.params.id;
+
+  // 1. Update the appointment status
+  const cancelQuery = `
+    UPDATE appointments
+    SET status = 'cancelled by customer'
+    WHERE id = ? AND status = 'pending'
+  `;
+
+  db.query(cancelQuery, [appointmentId], (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Database error", details: err });
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(400)
+        .json({ error: "Appointment not found or already handled." });
+    }
+
+    // 2. Fetch employee info for email
+    const infoQuery = `
+      SELECT u.email AS employee_email, u.name AS employee_name,
+             a.date, a.time, s.name AS service_name
+      FROM appointments a
+      JOIN users u ON a.employee_id = u.id
+      JOIN services s ON a.service_id = s.id
+      WHERE a.id = ?
+    `;
+
+    db.query(infoQuery, [appointmentId], (err2, result2) => {
+      if (err2 || result2.length === 0) {
+        console.warn("Cancellation succeeded but email fetch failed:", err2);
+        return res.json({ message: "Appointment cancelled. Email skipped." });
+      }
+
+      const { employee_email, employee_name, date, time, service_name } =
+        result2[0];
+
+      // 3. Send email to employee
+      const mailOptions = {
+        from: '"Scissors & Co." <scissorsco2025@gmail.com>',
+        to: employee_email,
+        subject: "Appointment Cancelled by Customer",
+        text: `
+Hello ${employee_name},
+
+An appointment has been cancelled by the customer.
+
+🛠️ Service: ${service_name}
+📅 Date: ${new Date(date).toLocaleDateString("en-GB")}
+🕒 Time: ${time.slice(0, 5)}
+
+Please update your schedule accordingly.
+
+– Scissors & Co.
+        `.trim(),
+      };
+
+      transporter.sendMail(mailOptions, (err3) => {
+        if (err3) {
+          console.error("Email send failed:", err3);
+          return res.json({ message: "Cancelled. Email failed." });
+        }
+
+        return res.json({
+          message: "Appointment cancelled and employee notified.",
+        });
+      });
+    });
   });
 });
