@@ -3,7 +3,7 @@
 .appointments-screen {
   padding: 4rem 3rem;
   max-width: 1200px;
-  margin: 6rem auto 8rem auto;
+
   background-color: #fff;
   border-radius: 1rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
@@ -58,12 +58,6 @@
   padding-top: 1rem;
   font-weight: bold;
   border-top: 2px solid #e6a84b;
-}
-
-
-.appointments-table th {
-  background-color: #f9f9f9;
-  color: #333;
 }
 
 /* Styling for the status dropdown */
@@ -177,10 +171,8 @@
 
 @media (max-width: 768px) {
   .appointments-screen {
-    padding: 2rem 1rem;
-    /* padding-top: calc(4rem + 80px); */
-    /* padding-top: 8rem; */
-    overflow-x: auto;
+    margin: 4rem 1rem;
+    max-width: 100%;
   }
 
   .appointments-table {
@@ -200,4 +192,71 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.floating-proof-reminder h3 {
+  color: #d17a00;
+  margin-top: 0;
+  margin-bottom: 0.8rem;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.floating-proof-reminder p {
+  margin: 0.3rem 0 0.6rem;
+  color: #444;
+}
+
+.floating-proof-reminder input[type="file"] {
+  margin-top: 0.5rem;
+  margin-bottom: 0.3rem;
+  width: 100%;
+}
+
+.floating-proof-reminder button {
+  margin-top: 0.3rem;
+  background-color: #ff8000;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  width: 100%;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.floating-proof-reminder button:hover {
+  background-color: #e07000;
+}
+
+/* Employee-specific layout */
+.employee-layout {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 2rem;
+  position: relative;
+}
+
+.employee-layout .appointments-screen {
+  flex: 1 1 65%;
+  margin-left: 2rem;
+  margin-right: 0;
+}
+
+.employee-layout .floating-proof-reminder {
+  flex: 1 1 30%;
+  position: sticky;
+  top: 12rem;
+  align-self: flex-start;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-size: 0.95rem;
+  height: fit-content;
+  max-width: 320px;
 }

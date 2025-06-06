@@ -21,7 +21,8 @@ function Appointments({ user }) {
   const [allowedEmployeeIds, setAllowedEmployeeIds] = useState([]);
   const [closedDays, setClosedDays] = useState([]);
   const [specialOverride, setSpecialOverride] = useState({});
-
+  const [pendingProofs, setPendingProofs] = useState([]);
+  const [proofUploads, setProofUploads] = useState({});
 
   const [filter, setFilter] = useState({
     employeeId: "",
@@ -56,6 +57,15 @@ function Appointments({ user }) {
     fetchCategories();
     fetchEmployees();
 
+    if (user?.role === "Employee") {
+      axios
+        .get(`http://localhost:5001/api/holidays/pending-proof/${user.id}`)
+        .then((res) => setPendingProofs(res.data))
+        .catch((err) =>
+          console.error("Error loading sick leave reminders:", err)
+        );
+    }
+
     axios
       .get("http://localhost:5001/api/business-hours/closed-days")
       .then((res) => {
@@ -65,7 +75,7 @@ function Appointments({ user }) {
       .catch((err) => console.error("❌ Failed to fetch closed days", err));
   }, []);
 
-  // ✅ this is a separate useEffect (NOT nested!)
+  // ✅ this is a separate useEffect
   useEffect(() => {
     fetchAppointments(startDate, endDate);
   }, [filter.employeeId, startDate, endDate]);
@@ -80,7 +90,6 @@ function Appointments({ user }) {
       fetchAvailableEmployees(filter.date);
     }
   }, [allowedEmployeeIds, filter.date]);
-  
 
   const fetchAppointments = (start = startDate, end = endDate) => {
     let query = `?start=${start}&end=${end}`;
@@ -153,10 +162,6 @@ function Appointments({ user }) {
         setEmployees([]);
       });
   };
-  
-  
-  
-  
 
   const fetchAvailableTimes = (serviceId, employeeId, rawDate) => {
     const normalizedDate = new Date(rawDate).toISOString().split("T")[0];
@@ -296,7 +301,6 @@ function Appointments({ user }) {
         );
       },
     });
-    
 
     const totalVATs = filteredAppts
       .filter((appt) => appt.status === "done")
@@ -462,267 +466,354 @@ function Appointments({ user }) {
     const weekday = dateObj.toLocaleString("en-US", { weekday: "long" });
     return !closedDays.includes(weekday);
   };
-  
+
+  const handleProofUpload = async (holidayId) => {
+    const file = proofUploads[holidayId];
+    if (!file) {
+      alert("Please choose a file first.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("proof", file);
+
+    try {
+      await axios.post(
+        `http://localhost:5001/api/holidays/${holidayId}/proof`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      alert("Proof uploaded!");
+      setPendingProofs((prev) => prev.filter((item) => item.id !== holidayId));
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Failed to upload proof.");
+    }
+  };
 
   return (
-    <div className="appointments-screen">
-      <h1>Manage Appointments</h1>
+    <div
+      className={`appointments-wrapper ${
+        user.role === "Employee" ? "employee-layout" : ""
+      }`}
+    >
+      <div className="appointments-screen">
+        <h1>Manage Appointments</h1>
 
-      <p className="date-range-label">
-        📅 Showing appointments from {startDate} to {endDate}
-      </p>
-      <div className="status-summary">
-        🟡 Pending: {statusCounts["pending"] || 0} &nbsp;&nbsp; ✅ Done:{" "}
-        {statusCounts["done"] || 0} &nbsp;&nbsp; ❌ Cancelled:{" "}
-        {(statusCounts["cancelled by customer"] || 0) +
-          (statusCounts["cancelled by business"] || 0)}{" "}
-        &nbsp;&nbsp; ⛔ No Show: {statusCounts["no show"] || 0}
-      </div>
-
-      <div className="filters">
-        {user.role === "Admin" && (
-          <>
-            <label>Filter by Employee:</label>
-            <select
-              value={filter.employeeId}
-              name="employeeId"
-              onChange={(e) =>
-                setFilter((prev) => ({ ...prev, employeeId: e.target.value }))
-              }
-            >
-              <option value="">All Employees</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        <label>Start Date:</label>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
-        <label>End Date:</label>
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-        />
-        <div className="export-filter-inline">
-          <label>Status to Export:</label>
-          <select
-            value={exportStatus}
-            onChange={(e) => setExportStatus(e.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="done">Done</option>
-            <option value="pending">Pending</option>
-            <option value="no show">No Show</option>
-            <option value="cancelled by customer">Cancelled by Customer</option>
-            <option value="cancelled by business">Cancelled by Business</option>
-          </select>
+        <p className="date-range-label">
+          📅 Showing appointments from {startDate} to {endDate}
+        </p>
+        <div className="status-summary">
+          🟡 Pending: {statusCounts["pending"] || 0} &nbsp;&nbsp; ✅ Done:{" "}
+          {statusCounts["done"] || 0} &nbsp;&nbsp; ❌ Cancelled:{" "}
+          {(statusCounts["cancelled by customer"] || 0) +
+            (statusCounts["cancelled by business"] || 0)}{" "}
+          &nbsp;&nbsp; ⛔ No Show: {statusCounts["no show"] || 0}
         </div>
 
-        <button onClick={() => handleExportPDF(exportStatus)}>Export</button>
-
-        <button onClick={handleResetFilters}>Reset</button>
-
-        {(user.role === "Admin" || user.role === "Employee") &&
-          Object.keys(editedStatuses).length > 0 && (
-            <button onClick={handleSaveAllStatuses}>Save All Changes</button>
-          )}
-      </div>
-
-      <table className="appointments-table">
-        <thead>
-          <tr>
-            <th>Customer</th>
-            <th>Date & Time</th>
-            <th>Status</th>
-            <th>Employee</th>
-            <th>Service</th>
-            <th>Price</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {appointments
-            .filter(
-              (appt) => exportStatus === "all" || appt.status === exportStatus
-            )
-            .sort(
-              (a, b) =>
-                new Date(`${a.date}T${a.time}`) -
-                new Date(`${b.date}T${b.time}`)
-            )
-            .map((appt) => (
-              <tr key={appt.id}>
-                <td>{appt.customer_name}</td>
-                <td>
-                  {new Date(appt.date).toLocaleDateString("en-GB")}{" "}
-                  {appt.time.slice(0, 5)}
-                </td>
-                <td className="status">
-                  {user.role === "Admin" || user.role === "Employee" ? (
-                    <select
-                      value={editedStatuses[appt.id] ?? appt.status}
-                      onChange={(e) =>
-                        handleStatusChange(appt.id, e.target.value)
-                      }
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="done">Done</option>
-                      <option value="no show">No Show</option>
-                      <option value="cancelled by customer">
-                        Cancelled by Customer
-                      </option>
-                      <option value="cancelled by business">
-                        Cancelled by Business
-                      </option>
-                    </select>
-                  ) : (
-                    <span>{appt.status}</span>
-                  )}
-                </td>
-                <td>{appt.employee_name}</td>
-                <td>{appt.service_name}</td>
-                <td>{appt.price} ₪</td>
-              </tr>
-            ))}
-        </tbody>
-
-        <tfoot>
-          <tr>
-            <td colSpan={5} style={{ textAlign: "right", fontWeight: "bold" }}>
-              Total:
-              <div
-                style={{
-                  fontWeight: "normal",
-                  fontSize: "0.95rem",
-                  color: "#666",
-                }}
+        <div className="filters">
+          {user.role === "Admin" && (
+            <>
+              <label>Filter by Employee:</label>
+              <select
+                value={filter.employeeId}
+                name="employeeId"
+                onChange={(e) =>
+                  setFilter((prev) => ({ ...prev, employeeId: e.target.value }))
+                }
               >
-                (Only appointments marked as "done" are included)
-              </div>
-            </td>
-            <td style={{ fontWeight: "bold" }}>₪{totalRevenue.toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      {/* Booking Form */}
-      {user.role !== "Customer" && (
-        <div className="book-appointment">
-          <h2>Book an Appointment for Customer</h2>
-
-          <input
-            type="email"
-            name="customerEmail"
-            placeholder="Customer Email"
-            value={bookingForm.customerEmail}
-            onChange={handleBookingChange}
-            onBlur={checkCustomerEmail}
-          />
-
-          {!emailExists && (
-            <p style={{ color: "red" }}>
-              You should sign up first!{" "}
-              <button type="button" onClick={() => setShowSignUpModal(true)}>
-                sign up
-              </button>
-            </p>
+                <option value="">All Employees</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}
+                  </option>
+                ))}
+              </select>
+            </>
           )}
-          <fieldset
-            disabled={!emailExists}
-            style={{ border: "none", padding: 0 }}
-          >
+          <label>Start Date:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <label>End Date:</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+          <div className="export-filter-inline">
+            <label>Status to Export:</label>
             <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
+              value={exportStatus}
+              onChange={(e) => setExportStatus(e.target.value)}
             >
-              <option value="">Select Category</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
+              <option value="all">All</option>
+              <option value="done">Done</option>
+              <option value="pending">Pending</option>
+              <option value="no show">No Show</option>
+              <option value="cancelled by customer">
+                Cancelled by Customer
+              </option>
+              <option value="cancelled by business">
+                Cancelled by Business
+              </option>
             </select>
+          </div>
 
-            <select
-              name="serviceId"
-              value={bookingForm.serviceId}
-              onChange={handleBookingChange}
-              disabled={!selectedCategory}
-            >
-              <option value="">Select Service</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} – ₪{s.price}
-                </option>
-              ))}
-            </select>
+          <button onClick={() => handleExportPDF(exportStatus)}>Export</button>
+
+          <button onClick={handleResetFilters}>Reset</button>
+
+          {(user.role === "Admin" || user.role === "Employee") &&
+            Object.keys(editedStatuses).length > 0 && (
+              <button onClick={handleSaveAllStatuses}>Save All Changes</button>
+            )}
+        </div>
+
+        <div className="appointments-layout">
+          <table className="appointments-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Date & Time</th>
+                <th>Status</th>
+                <th>Employee</th>
+                <th>Service</th>
+                <th>Price</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {appointments
+                .filter(
+                  (appt) =>
+                    exportStatus === "all" || appt.status === exportStatus
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(`${a.date}T${a.time}`) -
+                    new Date(`${b.date}T${b.time}`)
+                )
+                .map((appt) => (
+                  <tr key={appt.id}>
+                    <td>{appt.customer_name}</td>
+                    <td>
+                      {new Date(appt.date).toLocaleDateString("en-GB")}{" "}
+                      {appt.time.slice(0, 5)}
+                    </td>
+                    <td className="status">
+                      {user.role === "Admin" || user.role === "Employee" ? (
+                        <select
+                          value={editedStatuses[appt.id] ?? appt.status}
+                          onChange={(e) =>
+                            handleStatusChange(appt.id, e.target.value)
+                          }
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="done">Done</option>
+                          <option value="no show">No Show</option>
+                          <option value="cancelled by customer">
+                            Cancelled by Customer
+                          </option>
+                          <option value="cancelled by business">
+                            Cancelled by Business
+                          </option>
+                        </select>
+                      ) : (
+                        <span>{appt.status}</span>
+                      )}
+                    </td>
+                    <td>{appt.employee_name}</td>
+                    <td>{appt.service_name}</td>
+                    <td>{appt.price} ₪</td>
+                  </tr>
+                ))}
+            </tbody>
+
+            <tfoot>
+              <tr>
+                <td
+                  colSpan={5}
+                  style={{ textAlign: "right", fontWeight: "bold" }}
+                >
+                  Total:
+                  <div
+                    style={{
+                      fontWeight: "normal",
+                      fontSize: "0.95rem",
+                      color: "#666",
+                    }}
+                  >
+                    (Only appointments marked as "done" are included)
+                  </div>
+                </td>
+                <td style={{ fontWeight: "bold" }}>
+                  ₪{totalRevenue.toFixed(2)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Booking Form */}
+        {user.role !== "Customer" && (
+          <div className="book-appointment">
+            <h2>Book an Appointment for Customer</h2>
 
             <input
-              type="date"
-              name="date"
-              value={bookingForm.date}
+              type="email"
+              name="customerEmail"
+              placeholder="Customer Email"
+              value={bookingForm.customerEmail}
               onChange={handleBookingChange}
-              min={new Date().toISOString().split("T")[0]}
-              style={{
-                backgroundColor:
-                  bookingForm.date && !isDateAllowed(bookingForm.date)
-                    ? "#ffd2d2"
-                    : "",
-              }}
-              title={
-                bookingForm.date && !isDateAllowed(bookingForm.date)
-                  ? "Business is closed on this day"
-                  : ""
-              }
+              onBlur={checkCustomerEmail}
             />
 
-            <select
-              name="employeeId"
-              value={bookingForm.employeeId}
-              onChange={handleBookingChange}
+            {!emailExists && (
+              <p style={{ color: "red" }}>
+                You should sign up first!{" "}
+                <button type="button" onClick={() => setShowSignUpModal(true)}>
+                  sign up
+                </button>
+              </p>
+            )}
+            <fieldset
+              disabled={!emailExists}
+              style={{ border: "none", padding: 0 }}
             >
-              <option value="">Choose Employee</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+              >
+                <option value="">Select Category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              name="time"
-              value={bookingForm.time}
-              onChange={handleBookingChange}
-            >
-              <option value="">Choose Time</option>
-              {filteredTimes.map((time, i) => (
-                <option key={i} value={time}>
-                  {time}
-                </option>
-              ))}
-            </select>
+              <select
+                name="serviceId"
+                value={bookingForm.serviceId}
+                onChange={handleBookingChange}
+                disabled={!selectedCategory}
+              >
+                <option value="">Select Service</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} – ₪{s.price}
+                  </option>
+                ))}
+              </select>
 
-            <button onClick={handleCreateAppointment} disabled={!emailExists}>
-              Book
-            </button>
-          </fieldset>
+              <input
+                type="date"
+                name="date"
+                value={bookingForm.date}
+                onChange={handleBookingChange}
+                min={new Date().toISOString().split("T")[0]}
+                style={{
+                  backgroundColor:
+                    bookingForm.date && !isDateAllowed(bookingForm.date)
+                      ? "#ffd2d2"
+                      : "",
+                }}
+                title={
+                  bookingForm.date && !isDateAllowed(bookingForm.date)
+                    ? "Business is closed on this day"
+                    : ""
+                }
+              />
+
+              <select
+                name="employeeId"
+                value={bookingForm.employeeId}
+                onChange={handleBookingChange}
+              >
+                <option value="">Choose Employee</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="time"
+                value={bookingForm.time}
+                onChange={handleBookingChange}
+              >
+                <option value="">Choose Time</option>
+                {filteredTimes.map((time, i) => (
+                  <option key={i} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+
+              <button onClick={handleCreateAppointment} disabled={!emailExists}>
+                Book
+              </button>
+            </fieldset>
+          </div>
+        )}
+
+        {showSignUpModal && (
+          <SignUpModal
+            prefillEmail={bookingForm.customerEmail}
+            onClose={() => setShowSignUpModal(false)}
+            onSuccess={checkCustomerEmail}
+          />
+        )}
+      </div>
+      {user.role === "Employee" && pendingProofs.length > 0 && (
+        <div className="floating-proof-reminder">
+          <h3>📣 Sick Leave Reminders</h3>
+          <ul>
+            {pendingProofs.map((p) => {
+              const endDate = new Date(p.end_date);
+              const lastDay = new Date(
+                endDate.getFullYear(),
+                endDate.getMonth() + 1,
+                0
+              );
+              const daysLeft = Math.ceil(
+                (lastDay - new Date()) / (1000 * 60 * 60 * 24)
+              );
+
+              return (
+                <li key={p.id} style={{ marginBottom: "1rem" }}>
+                  <p>
+                    You must upload a sick note for leave from{" "}
+                    <strong>
+                      {new Date(p.start_date).toLocaleDateString("en-GB")}
+                    </strong>{" "}
+                    to{" "}
+                    <strong>
+                      {new Date(p.end_date).toLocaleDateString("en-GB")}
+                    </strong>
+                    . <br />
+                    <strong>{daysLeft}</strong> day(s) left before it turns into
+                    "Time Off".
+                  </p>
+                  <input
+                    type="file"
+                    onChange={(e) =>
+                      setProofUploads((prev) => ({
+                        ...prev,
+                        [p.id]: e.target.files[0],
+                      }))
+                    }
+                  />
+                  <button onClick={() => handleProofUpload(p.id)}>Send</button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
-      )}
-
-      {showSignUpModal && (
-        <SignUpModal
-          prefillEmail={bookingForm.customerEmail}
-          onClose={() => setShowSignUpModal(false)}
-          onSuccess={checkCustomerEmail}
-        />
       )}
     </div>
   );
