@@ -267,6 +267,42 @@ function Settings({ user }) {
       setVatMsg("Failed to update VAT.");
     }
   };
+  const submitEmployeeHoliday = async () => {
+    const { start_date, end_date, reason, note, proof } = holiday;
+    if (!start_date || !end_date || !reason) {
+      alert("Please fill all required fields.");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("start_date", start_date);
+      formData.append("end_date", end_date);
+      formData.append("reason", reason);
+      formData.append("note", note || "");
+      formData.append("employee_id", user.id);
+      if (proof) formData.append("proof", proof);
+
+      await axios.post(`${API_BASE}/api/holidays`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      alert("Holiday request submitted.");
+      setHoliday({
+        start_date: "",
+        end_date: "",
+        reason: "",
+        proof: null,
+        start_time: "",
+        end_time: "",
+        note: "",
+      });
+    } catch (err) {
+      console.error("❌ Failed to submit holiday request:", err);
+      alert("Error submitting request.");
+    }
+  };
+  
 
   return (
     <div className="settings-container">
@@ -278,14 +314,32 @@ function Settings({ user }) {
             <label>Email (cannot change)</label>
             <input type="email" value={user.email} disabled />
             <label>Name</label>
-            <input type="text" name="name" value={form.name} onChange={handleProfileChange} required />
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleProfileChange}
+              required
+            />
             <label>Phone</label>
             <input type="text" value={form.phone} disabled />
             <label>Old Password</label>
-            <input type="password" name="oldPassword" value={form.oldPassword} onChange={handleProfileChange} />
+            <input
+              type="password"
+              name="oldPassword"
+              value={form.oldPassword}
+              onChange={handleProfileChange}
+            />
             <label>New Password</label>
-            <input type="password" name="newPassword" value={form.newPassword} onChange={handleProfileChange} />
-            <button type="submit" className="save-btn">Save Changes</button>
+            <input
+              type="password"
+              name="newPassword"
+              value={form.newPassword}
+              onChange={handleProfileChange}
+            />
+            <button type="submit" className="save-btn">
+              Save Changes
+            </button>
             {message && <p className="settings-message">{message}</p>}
           </form>
         </div>
@@ -307,7 +361,9 @@ function Settings({ user }) {
                 </thead>
                 <tbody>
                   {days.map((day) => {
-                    const entry = businessHours.find((e) => e.day_of_week === day) || {
+                    const entry = businessHours.find(
+                      (e) => e.day_of_week === day
+                    ) || {
                       day_of_week: day,
                       start_time: "08:00",
                       end_time: "17:00",
@@ -319,22 +375,38 @@ function Settings({ user }) {
                         <td>
                           <select
                             value={entry.start_time || ""}
-                            onChange={(e) => handleBusinessHourChange(day, "start_time", e.target.value)}
+                            onChange={(e) =>
+                              handleBusinessHourChange(
+                                day,
+                                "start_time",
+                                e.target.value
+                              )
+                            }
                             disabled={entry.closed}
                           >
                             {timeOptions.map((t) => (
-                              <option key={t} value={t}>{t}</option>
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
                             ))}
                           </select>
                         </td>
                         <td>
                           <select
                             value={entry.end_time || ""}
-                            onChange={(e) => handleBusinessHourChange(day, "end_time", e.target.value)}
+                            onChange={(e) =>
+                              handleBusinessHourChange(
+                                day,
+                                "end_time",
+                                e.target.value
+                              )
+                            }
                             disabled={entry.closed}
                           >
                             {timeOptions.map((t) => (
-                              <option key={t} value={t}>{t}</option>
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
                             ))}
                           </select>
                         </td>
@@ -342,7 +414,9 @@ function Settings({ user }) {
                           <input
                             type="checkbox"
                             checked={entry.closed}
-                            onChange={(e) => handleDayClosedToggle(day, e.target.checked)}
+                            onChange={(e) =>
+                              handleDayClosedToggle(day, e.target.checked)
+                            }
                           />
                         </td>
                       </tr>
@@ -350,7 +424,9 @@ function Settings({ user }) {
                   })}
                 </tbody>
               </table>
-              <button onClick={handleSaveHours} className="save-btn">Save Business Hours</button>
+              <button onClick={handleSaveHours} className="save-btn">
+                Save Business Hours
+              </button>
             </div>
 
             {/* Special Hours */}
@@ -463,6 +539,73 @@ function Settings({ user }) {
           </>
         )}
       </div>
+      {user.role === "Employee" && (
+        <div className="settings-card">
+          <h2>Request Time Off</h2>
+          <div className="settings-form">
+            <label>Start Date</label>
+            <input
+              type="date"
+              value={holiday.start_date}
+              onChange={(e) =>
+                setHoliday((prev) => ({ ...prev, start_date: e.target.value }))
+              }
+              min={todayStr}
+            />
+
+            <label>End Date</label>
+            <input
+              type="date"
+              value={holiday.end_date}
+              onChange={(e) =>
+                setHoliday((prev) => ({ ...prev, end_date: e.target.value }))
+              }
+              min={holiday.start_date || todayStr}
+            />
+
+            <label>Reason</label>
+            <select
+              value={holiday.reason}
+              onChange={(e) =>
+                setHoliday((prev) => ({ ...prev, reason: e.target.value }))
+              }
+            >
+              <option value="">-- Select --</option>
+              <option value="Sick">Sick</option>
+              <option value="חופש">חופש</option>
+              <option value="Travel">Travel</option>
+            </select>
+
+            {holiday.reason === "Sick" && (
+              <>
+                <label>Upload Proof (Doctor's Note)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.png"
+                  onChange={(e) =>
+                    setHoliday((prev) => ({
+                      ...prev,
+                      proof: e.target.files[0],
+                    }))
+                  }
+                />
+              </>
+            )}
+
+            <label>Note (optional)</label>
+            <input
+              type="text"
+              value={holiday.note}
+              onChange={(e) =>
+                setHoliday((prev) => ({ ...prev, note: e.target.value }))
+              }
+            />
+
+            <button onClick={submitEmployeeHoliday}>Submit Request</button>
+          </div>
+        </div>
+      )}
+      
     </div>
   );
 }
