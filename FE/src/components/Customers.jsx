@@ -19,19 +19,25 @@ function Customers() {
     return local.toISOString().split("T")[0];
   };
 
-  useEffect(() => {
+  const getDefaultDateRange = () => {
     const now = new Date();
     const year = now.getFullYear();
-    const start = new Date(`${year}-06-01`);
-    const end = new Date(year, 6, 0);
+    const month = now.getMonth(); 
 
-    const from = toLocalISOString(start);
-    const to = toLocalISOString(end);
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0); // last day of month
 
-    setStartDate(from);
-    setEndDate(to);
+    return {
+      start: toLocalISOString(start),
+      end: toLocalISOString(end),
+    };
+  };
 
-    setTimeout(() => fetchCustomers(from, to), 0);
+  useEffect(() => {
+    const { start, end } = getDefaultDateRange();
+    setStartDate(start);
+    setEndDate(end);
+    setTimeout(() => fetchCustomers(start, end), 0);
   }, []);
 
   useEffect(() => {
@@ -50,7 +56,6 @@ function Customers() {
           const appts = c.appointments || [];
 
           const totalAppointments = appts.length;
-
           const totalSpent = appts.reduce((sum, a) => {
             return a.status === "done" ? sum + (parseFloat(a.price) || 0) : sum;
           }, 0);
@@ -73,7 +78,6 @@ function Customers() {
           };
         });
 
-        // Sort by highest spender
         const sorted = processed.sort((a, b) => b.totalSpent - a.totalSpent);
         setCustomers(sorted);
         setFiltered(sorted);
@@ -85,7 +89,6 @@ function Customers() {
 
   const exportToPDF = () => {
     const doc = new jsPDF();
-
     doc.setFontSize(16);
     doc.text("Customers Summary", 14, 20);
     doc.setFontSize(10);
@@ -93,7 +96,7 @@ function Customers() {
 
     autoTable(doc, {
       startY: 35,
-      head: [["Name", "Email", "Appointments", "Top Service", "Spent (ils)"]],
+      head: [["Name", "Email", "Appointments", "Top Service", "Spent (ILS)"]],
       body: filtered.map((c) => [
         c.name,
         c.email,
@@ -113,8 +116,12 @@ function Customers() {
 
     doc.save(`customers_summary_${startDate}_to_${endDate}.pdf`);
   };
-  
-  
+
+  const handleResetDates = () => {
+    const { start, end } = getDefaultDateRange();
+    setStartDate(start);
+    setEndDate(end);
+  };
 
   const openModal = (customer) => {
     setSelectedAppointments(customer.appointments);
@@ -143,6 +150,7 @@ function Customers() {
           onChange={(e) => setEndDate(e.target.value)}
         />
         <button onClick={exportToPDF}>Export to PDF</button>
+        <button onClick={handleResetDates}>Reset Dates</button>
       </div>
 
       <table className="customers-table">
