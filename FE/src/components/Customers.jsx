@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/Customers.css";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -82,8 +84,37 @@ function Customers() {
   };
 
   const exportToPDF = () => {
-    alert("PDF export not implemented yet.");
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text("Customers Summary", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Date range: ${startDate} to ${endDate}`, 14, 28);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [["Name", "Email", "Appointments", "Top Service", "Spent (ils)"]],
+      body: filtered.map((c) => [
+        c.name,
+        c.email,
+        c.totalAppointments,
+        c.favoriteService,
+        c.totalSpent.toFixed(2),
+      ]),
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [255, 128, 0],
+        textColor: 255,
+      },
+    });
+
+    doc.save(`customers_summary_${startDate}_to_${endDate}.pdf`);
   };
+  
+  
 
   const openModal = (customer) => {
     setSelectedAppointments(customer.appointments);
