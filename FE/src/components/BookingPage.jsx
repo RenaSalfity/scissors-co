@@ -133,7 +133,7 @@ function BookingPage({ user }) {
   };
 
   const isTimeInPast = (dateStr, timeStr) => {
-    const [h, m] = timeStr.split(":".map(Number));
+    const [h, m] = timeStr.split(":").map(Number);
     const selected = new Date(dateStr);
     selected.setHours(h, m, 0, 0);
     return selected < new Date();
@@ -268,11 +268,13 @@ function BookingPage({ user }) {
           required
         >
           <option value="">Choose Time</option>
-          {filteredTimes.map((time, i) => (
-            <option key={i} value={time}>
-              {time}
-            </option>
-          ))}
+          {filteredTimes
+            .filter((time) => !isTimeInPast(form.date, time))
+            .map((time, i) => (
+              <option key={i} value={time}>
+                {time}
+              </option>
+            ))}
         </select>
 
         <button type="submit" disabled={isSubmitting}>
