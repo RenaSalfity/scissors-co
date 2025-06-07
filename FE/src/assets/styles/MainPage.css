@@ -179,7 +179,7 @@
 }
 
 .appt-time {
-  font-size: 0.85rem;
+  font-size: 1.2rem;
   color: #666;
 }
 
@@ -194,7 +194,7 @@
   border: none;
   color: #444;
   padding: 2px 6px;
-  font-size: 1.0rem;
+  font-size: 1.1rem;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
