@@ -490,6 +490,27 @@ function Appointments({ user }) {
       alert("Failed to upload proof.");
     }
   };
+  const formatLocalTime = (dateStr, timeStr) => {
+    const [hours, minutes] = timeStr.split(":");
+    const dt = new Date(dateStr);
+    dt.setHours(hours, minutes);
+    return dt.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+  const hasCancellable = appointments.some(
+    (appt) =>
+      appt.status?.toLowerCase() === "pending" &&
+      ((user.role === "Customer" && appt.customer_id === user.id) ||
+        (user.role === "Employee" &&
+          (appt.employee_id === user.id || appt.customer_id)) ||
+        user.role === "Admin")
+  );
+  
 
   return (
     <div
@@ -582,54 +603,101 @@ function Appointments({ user }) {
                 <th>Employee</th>
                 <th>Service</th>
                 <th>Price</th>
+                {hasCancellable && <th></th>}
               </tr>
             </thead>
 
             <tbody>
-              {appointments
-                .filter(
-                  (appt) =>
-                    exportStatus === "all" || appt.status === exportStatus
-                )
-                .sort(
-                  (a, b) =>
-                    new Date(`${a.date}T${a.time}`) -
-                    new Date(`${b.date}T${b.time}`)
-                )
-                .map((appt) => (
+              {appointments.map((appt) => {
+                const formatLocalTime = (dateStr, timeStr) => {
+                  const [hours, minutes] = timeStr.split(":");
+                  const dt = new Date(dateStr);
+                  dt.setHours(hours, minutes);
+                  return dt.toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                };
+
+                const isPending = appt.status?.toLowerCase() === "pending";
+
+                const canCancel =
+                  isPending &&
+                  ((user.role === "Customer" && appt.customer_id === user.id) ||
+                    (user.role === "Employee" &&
+                      (appt.employee_id === user.id || appt.customer_id)) ||
+                    user.role === "Admin");
+
+                const handleCancel = async () => {
+                  const confirm = window.confirm(
+                    "Are you sure you want to cancel?"
+                  );
+                  if (!confirm) return;
+
+                  try {
+                    await axios.put(
+                      `http://localhost:5001/api/appointments/${appt.id}/cancel`,
+                      {
+                        role: user.role,
+                        userId: user.id,
+                      }
+                    );
+                    alert("Appointment cancelled successfully.");
+                    fetchAppointments();
+                  } catch (err) {
+                    console.error("Cancellation failed:", err);
+                    alert("Failed to cancel appointment.");
+                  }
+                };
+
+                return (
                   <tr key={appt.id}>
                     <td>{appt.customer_name}</td>
-                    <td>
-                      {new Date(appt.date).toLocaleDateString("en-GB")}{" "}
-                      {appt.time.slice(0, 5)}
-                    </td>
-                    <td className="status">
+                    <td>{formatLocalTime(appt.date, appt.time)}</td>
+                    <td
+                      className={`status ${appt.status
+                        ?.toLowerCase()
+                        .replace(/\s/g, "-")}`}
+                    >
                       {user.role === "Admin" || user.role === "Employee" ? (
                         <select
-                          value={editedStatuses[appt.id] ?? appt.status}
+                          value={editedStatuses[appt.id] || appt.status}
                           onChange={(e) =>
                             handleStatusChange(appt.id, e.target.value)
                           }
                         >
-                          <option value="pending">Pending</option>
-                          <option value="done">Done</option>
-                          <option value="no show">No Show</option>
+                          <option value="pending">pending</option>
+                          <option value="done">done</option>
+                          <option value="no show">no show</option>
                           <option value="cancelled by customer">
-                            Cancelled by Customer
+                            cancelled by customer
                           </option>
                           <option value="cancelled by business">
-                            Cancelled by Business
+                            cancelled by business
                           </option>
                         </select>
                       ) : (
-                        <span>{appt.status}</span>
+                        appt.status
                       )}
                     </td>
                     <td>{appt.employee_name}</td>
                     <td>{appt.service_name}</td>
-                    <td>{appt.price} ₪</td>
+                    <td>{Number(appt.price).toFixed(2)} ₪</td>
+                    {hasCancellable && (
+                      <td>
+                        {canCancel && (
+                          <button className="cancel-btn" onClick={handleCancel}>
+                            Cancel
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
-                ))}
+                );
+              })}
             </tbody>
 
             <tfoot>
@@ -652,6 +720,7 @@ function Appointments({ user }) {
                 <td style={{ fontWeight: "bold" }}>
                   ₪{totalRevenue.toFixed(2)}
                 </td>
+                {hasCancellable && <td></td>}
               </tr>
             </tfoot>
           </table>

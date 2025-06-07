@@ -1745,75 +1745,183 @@ app.put("/api/holidays/:id/review", (req, res) => {
 });
 
 
-//cancel appointments
-app.put("/api/appointments/:id/cancel-by-customer", (req, res) => {
-  const appointmentId = req.params.id;
 
-  // 1. Update the appointment status
-  const cancelQuery = `
-    UPDATE appointments
-    SET status = 'cancelled by customer'
-    WHERE id = ? AND status = 'pending'
+
+app.put("/api/appointments/:id/cancel", (req, res) => {
+  const { id } = req.params;
+  const { role, userId } = req.body; // sent from frontend
+
+  const statusMap = {
+    customer: "cancelled by customer",
+    employee_self: "cancelled by customer",
+    employee_customer: "cancelled by business",
+    admin_self: "cancelled by customer",
+    admin_other: "cancelled by business",
+  };
+
+  // Step 1: Get appointment data
+  const getQuery = `
+    SELECT a.*, 
+           c.email AS customer_email, c.name AS customer_name,
+           e.email AS employee_email, e.name AS employee_name,
+           s.name AS service_name
+    FROM appointments a
+    JOIN users c ON a.customer_id = c.id
+    JOIN users e ON a.employee_id = e.id
+    JOIN services s ON a.service_id = s.id
+    WHERE a.id = ?
   `;
 
-  db.query(cancelQuery, [appointmentId], (err, result) => {
-    if (err)
-      return res.status(500).json({ error: "Database error", details: err });
+  db.query(getQuery, [id], (err, results) => {
+    if (err || results.length === 0)
+      return res.status(400).json({ error: "Appointment not found" });
 
-    if (result.affectedRows === 0) {
-      return res
-        .status(400)
-        .json({ error: "Appointment not found or already handled." });
+    const appt = results[0];
+
+    // Step 2: Determine who is cancelling and which status to apply
+    let statusKey = "";
+    if (role === "Customer" && appt.customer_id == userId) {
+      statusKey = "customer";
+    } else if (role === "Employee") {
+      if (appt.employee_id == userId && appt.customer_id == userId) {
+        statusKey = "employee_self"; // Employee booked himself
+      } else if (appt.employee_id == userId) {
+        statusKey = "employee_customer";
+      }
+    } else if (role === "Admin") {
+      if (appt.customer_id == userId && appt.employee_id == userId) {
+        statusKey = "admin_self";
+      } else {
+        statusKey = "admin_other";
+      }
     }
 
-    // 2. Fetch employee info for email
-    const infoQuery = `
-      SELECT u.email AS employee_email, u.name AS employee_name,
-             a.date, a.time, s.name AS service_name
-      FROM appointments a
-      JOIN users u ON a.employee_id = u.id
-      JOIN services s ON a.service_id = s.id
-      WHERE a.id = ?
-    `;
+    if (!statusKey)
+      return res.status(403).json({ error: "Unauthorized action" });
 
-    db.query(infoQuery, [appointmentId], (err2, result2) => {
-      if (err2 || result2.length === 0) {
-        console.warn("Cancellation succeeded but email fetch failed:", err2);
-        return res.json({ message: "Appointment cancelled. Email skipped." });
-      }
+    const newStatus = statusMap[statusKey];
 
-      const { employee_email, employee_name, date, time, service_name } =
-        result2[0];
+    // Step 3: Update appointment status
+    const updateQuery = `UPDATE appointments SET status = ? WHERE id = ? AND status = 'pending'`;
+    db.query(updateQuery, [newStatus, id], (err2, result2) => {
+      if (err2 || result2.affectedRows === 0)
+        return res
+          .status(500)
+          .json({ error: "Failed to cancel or already cancelled" });
 
-      // 3. Send email to employee
-      const mailOptions = {
-        from: '"Scissors & Co." <scissorsco2025@gmail.com>',
-        to: employee_email,
-        subject: "Appointment Cancelled by Customer",
-        text: `
-Hello ${employee_name},
+      // Step 4: Send emails
+      // Step 4: Send customized emails
+      const {
+        customer_email,
+        customer_name,
+        employee_email,
+        employee_name,
+        date,
+        time,
+        service_name,
+      } = appt;
 
-An appointment has been cancelled by the customer.
+      const formattedDate = new Date(date).toLocaleDateString("en-GB");
+      const formattedTime = time.slice(0, 5);
 
-🛠️ Service: ${service_name}
-📅 Date: ${new Date(date).toLocaleDateString("en-GB")}
-🕒 Time: ${time.slice(0, 5)}
+      // 1. Define email content per case
+      let customerSubject = "";
+      let customerText = "";
+      let employeeSubject = "";
+      let employeeText = "";
 
-Please update your schedule accordingly.
+      // Who cancelled what?
+      if (statusKey === "customer") {
+        // Customer cancelled their own
+        customerSubject = "Appointment Cancelled";
+        customerText = `
+Hello ${customer_name},
+
+The appointment you booked with ${employee_name} for ${service_name} on ${formattedDate} at ${formattedTime} has been cancelled successfully.
 
 – Scissors & Co.
-        `.trim(),
-      };
+  `.trim();
 
-      transporter.sendMail(mailOptions, (err3) => {
-        if (err3) {
-          console.error("Email send failed:", err3);
-          return res.json({ message: "Cancelled. Email failed." });
-        }
+        employeeSubject = "Customer Appointment Cancelled";
+        employeeText = `
+Hello ${employee_name},
 
-        return res.json({
-          message: "Appointment cancelled and employee notified.",
-        });
+Customer ${customer_name} has cancelled their appointment for ${service_name} on ${formattedDate} at ${formattedTime}.
+
+– Scissors & Co.
+  `.trim();
+      } else if (statusKey === "employee_self" || statusKey === "admin_self") {
+        // Employee or Admin cancelled their own appointment
+        const name = role === "Admin" ? "Admin" : "Employee";
+        const userName = role === "Admin" ? customer_name : employee_name;
+
+        customerSubject = "Appointment Cancelled";
+        customerText = `
+Hello ${userName},
+
+The appointment you booked for ${service_name} on ${formattedDate} at ${formattedTime} was cancelled successfully.
+
+– Scissors & Co.
+  `.trim();
+
+        // No need to email anyone else
+      } else if (
+        statusKey === "employee_customer" ||
+        statusKey === "admin_other"
+      ) {
+        // Business (admin or employee) cancels customer appointment
+        customerSubject = "Your Appointment was Cancelled";
+        customerText = `
+Hello ${customer_name},
+
+Your appointment on ${formattedDate} at ${formattedTime} for ${service_name} has been cancelled by the business.
+
+You can book a new appointment anytime through the platform.
+
+– Scissors & Co.
+  `.trim();
+
+        employeeSubject = "Customer Appointment Cancelled";
+        employeeText = `
+Hello ${employee_name},
+
+Customer ${customer_name}’s appointment on ${formattedDate} at ${formattedTime} for ${service_name} has been cancelled by the business.
+
+– Scissors & Co.
+  `.trim();
+      }
+
+      // 2. Send Emails
+      if (customerSubject && customerText) {
+        transporter.sendMail(
+          {
+            from: '"Scissors & Co." <scissorsco2025@gmail.com>',
+            to: customer_email,
+            subject: customerSubject,
+            text: customerText,
+          },
+          (err) => {
+            if (err) console.warn("Failed to email customer:", err);
+          }
+        );
+      }
+
+      if (employeeSubject && employeeText) {
+        transporter.sendMail(
+          {
+            from: '"Scissors & Co." <scissorsco2025@gmail.com>',
+            to: employee_email,
+            subject: employeeSubject,
+            text: employeeText,
+          },
+          (err) => {
+            if (err) console.warn("Failed to email employee:", err);
+          }
+        );
+      }
+
+      res.json({
+        message: "Appointment cancelled and notifications sent.",
       });
     });
   });

@@ -53,18 +53,20 @@ function Customer({ user }) {
 
     try {
       await axios.put(
-        `http://localhost:5001/api/appointments/${appointmentId}/cancel-by-customer`
+        `http://localhost:5001/api/appointments/${appointmentId}/cancel`,
+        {
+          role: user.role,
+          userId: user.id,
+        }
       );
-
-      // Refresh the full list instead of filtering manually
       fetchAppointments();
-
       alert("Appointment cancelled successfully.");
     } catch (err) {
       console.error("Cancellation failed:", err);
       alert("Failed to cancel appointment. Please try again.");
     }
   };
+  
 
   if (!user) return null;
 

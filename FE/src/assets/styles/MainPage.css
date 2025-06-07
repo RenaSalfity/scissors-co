@@ -75,10 +75,13 @@
   margin-left: 50px;
 }
 
-.upcoming-box h2 {
+.upcoming-box h2 {  
   margin-bottom: 1rem;
   color: #444;
   font-size: 2rem;
+}
+.upcoming-box p{
+  color: rgba(85, 81, 81, 0.468);
 }
 
 .upcoming-list {

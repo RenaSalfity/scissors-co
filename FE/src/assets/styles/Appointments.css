@@ -78,12 +78,12 @@
 
 /* Status color coding */
 .appointments-table .status.pending {
-  background-color: #f0ad4e;
+  background-color: #f0ac4e91;
   color: white;
 }
 
 .appointments-table .status.done {
-  background-color: #5bc0de;
+  background-color: #184d18a1;
   color: white;
 }
 
@@ -93,7 +93,7 @@
 }
 
 .appointments-table .status.cancelled-by-customer {
-  background-color: #f0ad4e;
+  background-color: #f0764e;
   color: white;
 }
 
@@ -259,4 +259,19 @@
   font-size: 0.95rem;
   height: fit-content;
   max-width: 320px;
+}
+
+.cancel-btn {
+  background-color: #ff4d4d8b;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background-color: #d93636;
 }
