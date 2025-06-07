@@ -13,6 +13,8 @@ function Settings({ user }) {
   });
   const [message, setMessage] = useState("");
   const [businessHours, setBusinessHours] = useState([]);
+  const [activeTab, setActiveTab] = useState("profile");
+
   const [holiday, setHoliday] = useState({
     start_date: "",
     end_date: "",
@@ -305,309 +307,356 @@ function Settings({ user }) {
   
 
   return (
-    <div className="settings-container">
-      <div className="settings-cards-wrapper">
-        {/* Profile Settings */}
-        <div className="settings-card">
-          <h2>Settings</h2>
-          <form onSubmit={handleSubmit} className="settings-form">
-            <label>Email (cannot change)</label>
-            <input type="email" value={user.email} disabled />
-            <label>Name</label>
-            <input
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleProfileChange}
-              required
-            />
-            <label>Phone</label>
-            <input type="text" value={form.phone} disabled />
-            <label>Old Password</label>
-            <input
-              type="password"
-              name="oldPassword"
-              value={form.oldPassword}
-              onChange={handleProfileChange}
-            />
-            <label>New Password</label>
-            <input
-              type="password"
-              name="newPassword"
-              value={form.newPassword}
-              onChange={handleProfileChange}
-            />
-            <button type="submit" className="save-btn">
-              Save Changes
-            </button>
-            {message && <p className="settings-message">{message}</p>}
-          </form>
-        </div>
-
-        {/* Admin Sections */}
+    <div className="admin-settings-layout">
+      <aside className="settings-sidebar">
+        <button
+          className={activeTab === "profile" ? "active" : ""}
+          onClick={() => setActiveTab("profile")}
+        >
+          Personal Info
+        </button>
         {user.role === "Admin" && (
           <>
-            {/* Business Hours */}
-            <div className="settings-card">
-              <h2>Business Hours</h2>
-              <table className="business-hours-table">
-                <thead>
-                  <tr>
-                    <th>Day</th>
-                    <th>Start Time</th>
-                    <th>End Time</th>
-                    <th>Closed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {days.map((day) => {
-                    const entry = businessHours.find(
-                      (e) => e.day_of_week === day
-                    ) || {
-                      day_of_week: day,
-                      start_time: "08:00",
-                      end_time: "17:00",
-                      closed: false,
-                    };
-                    return (
-                      <tr key={day}>
-                        <td>{day}</td>
-                        <td>
-                          <select
-                            value={entry.start_time || ""}
-                            onChange={(e) =>
-                              handleBusinessHourChange(
-                                day,
-                                "start_time",
-                                e.target.value
-                              )
-                            }
-                            disabled={entry.closed}
-                          >
-                            {timeOptions.map((t) => (
-                              <option key={t} value={t}>
-                                {t}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <select
-                            value={entry.end_time || ""}
-                            onChange={(e) =>
-                              handleBusinessHourChange(
-                                day,
-                                "end_time",
-                                e.target.value
-                              )
-                            }
-                            disabled={entry.closed}
-                          >
-                            {timeOptions.map((t) => (
-                              <option key={t} value={t}>
-                                {t}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={entry.closed}
-                            onChange={(e) =>
-                              handleDayClosedToggle(day, e.target.checked)
-                            }
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <button onClick={handleSaveHours} className="save-btn">
-                Save Business Hours
-              </button>
-            </div>
-
-            {/* Special Hours */}
-            <div className="settings-card">
-              <h2>Special Business Hours</h2>
-              <div className="settings-form">
-                <label>Pick a Date</label>
-                <input
-                  type="date"
-                  value={holiday.start_date}
-                  onChange={(e) =>
-                    setHoliday((prev) => ({
-                      ...prev,
-                      start_date: e.target.value,
-                    }))
-                  }
-                  min={todayStr}
-                />
-                <label>Reason</label>
-                <select
-                  value={holiday.reason}
-                  onChange={(e) =>
-                    setHoliday((prev) => ({ ...prev, reason: e.target.value }))
-                  }
-                >
-                  <option value="">-- Select Reason --</option>
-                  <option value="Holiday">Holiday</option>
-                  <option value="Other">Other</option>
-                </select>
-                <label>Start Time</label>
-                <select
-                  value={holiday.start_time || ""}
-                  onChange={(e) =>
-                    setHoliday((prev) => ({
-                      ...prev,
-                      start_time: e.target.value,
-                      end_time: e.target.value === "" ? "" : prev.end_time,
-                    }))
-                  }
-                >
-                  <option value="">-- Closed --</option>
-                  {timeOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <label>End Time</label>
-                <select
-                  value={holiday.end_time || ""}
-                  onChange={(e) =>
-                    setHoliday((prev) => ({
-                      ...prev,
-                      end_time: e.target.value,
-                      start_time: e.target.value === "" ? "" : prev.start_time,
-                    }))
-                  }
-                >
-                  <option value="">-- Closed --</option>
-                  {timeOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <label>Note</label>
-                <input
-                  type="text"
-                  value={holiday.note || ""}
-                  onChange={(e) =>
-                    setHoliday((prev) => ({ ...prev, note: e.target.value }))
-                  }
-                />
-                <button onClick={submitSpecialHours} className="save-btn">
-                  Save Special Hours
-                </button>
-              </div>
-            </div>
-
-            {/* VAT Settings */}
-            <div className="settings-card">
-              <h2>VAT Settings</h2>
-              <p>
-                Current VAT:{" "}
-                {currentVat !== null ? `${currentVat}%` : "Loading..."}
-              </p>
-              <form onSubmit={handleVatSubmit} className="settings-form">
-                <label>New VAT Percentage (%)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={newVat}
-                  onChange={(e) => setNewVat(e.target.value)}
-                  required
-                />
-                <label>Start Date</label>
-                <input
-                  type="date"
-                  value={vatStartDate}
-                  onChange={(e) => setVatStartDate(e.target.value)}
-                  required
-                />
-                <button type="submit" className="save-btn">
-                  Update VAT
-                </button>
-                {vatMsg && <p>{vatMsg}</p>}
-              </form>
-            </div>
+            <button
+              className={activeTab === "hours" ? "active" : ""}
+              onClick={() => setActiveTab("hours")}
+            >
+              Business Hours
+            </button>
+            <button
+              className={activeTab === "special" ? "active" : ""}
+              onClick={() => setActiveTab("special")}
+            >
+              Special Closures
+            </button>
+            <button
+              className={activeTab === "vat" ? "active" : ""}
+              onClick={() => setActiveTab("vat")}
+            >
+              VAT Settings
+            </button>
           </>
         )}
-      </div>
-      {user.role === "Employee" && (
-        <div className="settings-card">
-          <h2>Request Time Off</h2>
-          <div className="settings-form">
-            <label>Start Date</label>
-            <input
-              type="date"
-              value={holiday.start_date}
-              onChange={(e) =>
-                setHoliday((prev) => ({ ...prev, start_date: e.target.value }))
-              }
-              min={todayStr}
-            />
+        {user.role === "Employee" && (
+          <button
+            className={activeTab === "holiday" ? "active" : ""}
+            onClick={() => setActiveTab("holiday")}
+          >
+            Request Time Off
+          </button>
+        )}
+      </aside>
 
-            <label>End Date</label>
-            <input
-              type="date"
-              value={holiday.end_date}
-              onChange={(e) =>
-                setHoliday((prev) => ({ ...prev, end_date: e.target.value }))
-              }
-              min={holiday.start_date || todayStr}
-            />
-
-            <label>Reason</label>
-            <select
-              value={holiday.reason}
-              onChange={(e) =>
-                setHoliday((prev) => ({ ...prev, reason: e.target.value }))
-              }
-            >
-              <option value="">-- Select --</option>
-              <option value="Sick">Sick</option>
-              <option value="חופש">חופש</option>
-              <option value="Travel">Travel</option>
-            </select>
-
-            {holiday.reason === "Sick" && (
-              <>
-                <label>Upload Proof (Doctor's Note)</label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.png"
-                  onChange={(e) =>
-                    setHoliday((prev) => ({
-                      ...prev,
-                      proof: e.target.files[0],
-                    }))
-                  }
-                />
-              </>
-            )}
-
-            <label>Note (optional)</label>
-            <input
-              type="text"
-              value={holiday.note}
-              onChange={(e) =>
-                setHoliday((prev) => ({ ...prev, note: e.target.value }))
-              }
-            />
-
-            <button onClick={submitEmployeeHoliday}>Submit Request</button>
+      <div className="settings-content">
+        {activeTab === "profile" && (
+          <div className="settings-card">
+            <h2>Settings</h2>
+            <form onSubmit={handleSubmit} className="settings-form">
+              <label>Email (cannot change)</label>
+              <input type="email" value={user.email} disabled />
+              <label>Name</label>
+              <input
+                type="text"
+                name="name"
+                value={form.name}
+                onChange={handleProfileChange}
+                required
+              />
+              <label>Phone</label>
+              <input type="text" value={form.phone} disabled />
+              <label>Old Password</label>
+              <input
+                type="password"
+                name="oldPassword"
+                value={form.oldPassword}
+                onChange={handleProfileChange}
+              />
+              <label>New Password</label>
+              <input
+                type="password"
+                name="newPassword"
+                value={form.newPassword}
+                onChange={handleProfileChange}
+              />
+              <button type="submit" className="save-btn">
+                Save Changes
+              </button>
+              {message && <p className="settings-message">{message}</p>}
+            </form>
           </div>
-        </div>
-      )}
-      
+        )}
+
+        {activeTab === "hours" && user.role === "Admin" && (
+          <div className="settings-card">
+            <h2>Business Hours</h2>
+            <table className="business-hours-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Start Time</th>
+                  <th>End Time</th>
+                  <th>Closed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((day) => {
+                  const entry = businessHours.find(
+                    (e) => e.day_of_week === day
+                  ) || {
+                    day_of_week: day,
+                    start_time: "08:00",
+                    end_time: "17:00",
+                    closed: false,
+                  };
+                  return (
+                    <tr key={day}>
+                      <td>{day}</td>
+                      <td>
+                        <select
+                          value={entry.start_time || ""}
+                          onChange={(e) =>
+                            handleBusinessHourChange(
+                              day,
+                              "start_time",
+                              e.target.value
+                            )
+                          }
+                          disabled={entry.closed}
+                        >
+                          {timeOptions.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={entry.end_time || ""}
+                          onChange={(e) =>
+                            handleBusinessHourChange(
+                              day,
+                              "end_time",
+                              e.target.value
+                            )
+                          }
+                          disabled={entry.closed}
+                        >
+                          {timeOptions.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={entry.closed}
+                          onChange={(e) =>
+                            handleDayClosedToggle(day, e.target.checked)
+                          }
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <button onClick={handleSaveHours} className="save-btn">
+              Save Business Hours
+            </button>
+          </div>
+        )}
+
+        {activeTab === "special" && user.role === "Admin" && (
+          <div className="settings-card">
+            <h2>Special Business Hours</h2>
+            <div className="settings-form">
+              <label>Pick a Date</label>
+              <input
+                type="date"
+                value={holiday.start_date}
+                onChange={(e) =>
+                  setHoliday((prev) => ({
+                    ...prev,
+                    start_date: e.target.value,
+                  }))
+                }
+                min={todayStr}
+              />
+
+              <label>Reason</label>
+              <select
+                value={holiday.reason}
+                onChange={(e) =>
+                  setHoliday((prev) => ({ ...prev, reason: e.target.value }))
+                }
+              >
+                <option value="">-- Select Reason --</option>
+                <option value="Holiday">Holiday</option>
+                <option value="Other">Other</option>
+              </select>
+
+              <label>Start Time</label>
+              <select
+                value={holiday.start_time || ""}
+                onChange={(e) =>
+                  setHoliday((prev) => ({
+                    ...prev,
+                    start_time: e.target.value,
+                    end_time: e.target.value === "" ? "" : prev.end_time,
+                  }))
+                }
+              >
+                <option value="">-- Closed --</option>
+                {timeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+
+              <label>End Time</label>
+              <select
+                value={holiday.end_time || ""}
+                onChange={(e) =>
+                  setHoliday((prev) => ({
+                    ...prev,
+                    end_time: e.target.value,
+                    start_time: e.target.value === "" ? "" : prev.start_time,
+                  }))
+                }
+              >
+                <option value="">-- Closed --</option>
+                {timeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+
+              <label>Note</label>
+              <input
+                type="text"
+                value={holiday.note || ""}
+                onChange={(e) =>
+                  setHoliday((prev) => ({ ...prev, note: e.target.value }))
+                }
+              />
+
+              <button onClick={submitSpecialHours} className="save-btn">
+                Save Special Hours
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "vat" && user.role === "Admin" && (
+          <div className="settings-card">
+            <h2>VAT Settings</h2>
+            <p>
+              Current VAT:{" "}
+              {currentVat !== null ? `${currentVat}%` : "Loading..."}
+            </p>
+            <form onSubmit={handleVatSubmit} className="settings-form">
+              <label>New VAT Percentage (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={newVat}
+                onChange={(e) => setNewVat(e.target.value)}
+                required
+              />
+              <label>Start Date</label>
+              <input
+                type="date"
+                value={vatStartDate}
+                onChange={(e) => setVatStartDate(e.target.value)}
+                required
+              />
+              <button type="submit" className="save-btn">
+                Update VAT
+              </button>
+              {vatMsg && <p>{vatMsg}</p>}
+            </form>
+          </div>
+        )}
+
+        {activeTab === "holiday" && user.role === "Employee" && (
+          <div className="settings-card">
+            <h2>Request Time Off</h2>
+            <div className="settings-form">
+              <label>Start Date</label>
+              <input
+                type="date"
+                value={holiday.start_date}
+                onChange={(e) =>
+                  setHoliday((prev) => ({
+                    ...prev,
+                    start_date: e.target.value,
+                  }))
+                }
+                min={todayStr}
+              />
+
+              <label>End Date</label>
+              <input
+                type="date"
+                value={holiday.end_date}
+                onChange={(e) =>
+                  setHoliday((prev) => ({ ...prev, end_date: e.target.value }))
+                }
+                min={holiday.start_date || todayStr}
+              />
+
+              <label>Reason</label>
+              <select
+                value={holiday.reason}
+                onChange={(e) =>
+                  setHoliday((prev) => ({ ...prev, reason: e.target.value }))
+                }
+              >
+                <option value="">-- Select --</option>
+                <option value="Sick">Sick</option>
+                <option value="חופש">חופש</option>
+                <option value="Travel">Travel</option>
+              </select>
+
+              {holiday.reason === "Sick" && (
+                <>
+                  <label>Upload Proof (Doctor's Note)</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.png"
+                    onChange={(e) =>
+                      setHoliday((prev) => ({
+                        ...prev,
+                        proof: e.target.files[0],
+                      }))
+                    }
+                  />
+                </>
+              )}
+
+              <label>Note (optional)</label>
+              <input
+                type="text"
+                value={holiday.note}
+                onChange={(e) =>
+                  setHoliday((prev) => ({ ...prev, note: e.target.value }))
+                }
+              />
+
+              <button onClick={submitEmployeeHoliday}>Submit Request</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
+  
 }
 
 export default Settings;
